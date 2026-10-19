@@ -1,38 +1,31 @@
 import { CheckCircle2, MapPin, TriangleAlert } from "lucide-react"
 
-import { riskStatus, type Station } from "@/lib/dashboard-data"
+import type { Station } from "@/lib/dashboard-data"
+
+// Shown where a count needs PAH data the API does not provide yet.
+const BLANK = "—"
 
 type KpiCardsProps = {
   stations: Station[]
 }
 
 export function KpiCards({ stations }: KpiCardsProps) {
-  // Counts are worked out from the whole station list, not just the rows shown
-  // in the table.
-  const total = stations.length
-  const elevated = stations.filter(
-    (station) => riskStatus(station.predicted_pah_ug_l) === "Elevated"
-  ).length
-  const normal = stations.filter(
-    (station) => riskStatus(station.predicted_pah_ug_l) === "Normal"
-  ).length
-
   const cards = [
     {
       label: "Total Stations",
-      value: total,
+      value: stations.length,
       icon: MapPin,
       iconClass: "bg-brand-blue-soft text-brand-blue",
     },
     {
       label: "Elevated Risk",
-      value: elevated,
+      value: BLANK,
       icon: TriangleAlert,
       iconClass: "bg-warn-soft text-warn",
     },
     {
       label: "Normal",
-      value: normal,
+      value: BLANK,
       icon: CheckCircle2,
       iconClass: "bg-good-soft text-good",
     },

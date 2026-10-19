@@ -1,9 +1,4 @@
-import {
-  changePercent,
-  latestSampleDate,
-  riskStatus,
-  type Station,
-} from "@/lib/dashboard-data"
+import type { Station } from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
 
 const headers = [
@@ -19,6 +14,9 @@ const headers = [
 
 // Number columns are centred; the first two sit on the left.
 const centered = new Set([2, 3, 4, 5, 6, 7])
+
+// Shown wherever a value has no API source yet (PAH and sample dates).
+const BLANK = "—"
 
 function formatDate(date: string) {
   // "2026-10-17" -> "Oct 17, 2026". Formatting in UTC keeps the day from
@@ -66,61 +64,32 @@ export function ForecastTable({ stations, forecastDate }: ForecastTableProps) {
             </tr>
           </thead>
           <tbody>
-            {stations.map((station) => {
-              const change = changePercent(
-                station.historical_pah_ug_l,
-                station.predicted_pah_ug_l
-              )
-              const status = riskStatus(station.predicted_pah_ug_l)
-
-              return (
-                <tr
-                  key={station.station_number}
-                  className="border-b border-card-edge last:border-0"
-                >
-                  <td className="px-3 py-3 font-medium text-navy">
-                    {station.station_number}
-                  </td>
-                  <td className="px-3 py-3 text-navy">
-                    {station.station_name}
-                  </td>
-                  <td className="px-3 py-3 text-center text-navy">
-                    {formatDate(latestSampleDate)}
-                  </td>
-                  <td className="px-3 py-3 text-center text-navy tabular-nums">
-                    {station.historical_pah_ug_l.toFixed(3)}
-                  </td>
-                  <td className="px-3 py-3 text-center text-navy">
-                    {formatDate(forecastDate)}
-                  </td>
-                  <td className="px-3 py-3 text-center font-medium text-navy tabular-nums">
-                    {station.predicted_pah_ug_l.toFixed(3)}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-3 py-3 text-center font-medium tabular-nums",
-                      change >= 0 ? "text-rise" : "text-drop"
-                    )}
-                  >
-                    {`${change >= 0 ? "+" : "−"}${Math.abs(change).toFixed(1)}%`}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <span
-                      className={cn(
-                        "inline-block rounded-full px-2.5 py-1 text-xs font-medium",
-                        status === "Normal"
-                          ? "bg-drop-soft text-drop"
-                          : status === "Elevated"
-                            ? "bg-rise-soft text-rise"
-                            : "bg-forecast/10 text-forecast"
-                      )}
-                    >
-                      {status}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
+            {stations.map((station) => (
+              <tr
+                key={station.station_number}
+                className="border-b border-card-edge last:border-0"
+              >
+                <td className="px-3 py-3 font-medium text-navy">
+                  {station.station_number}
+                </td>
+                <td className="px-3 py-3 text-navy">{station.station_name}</td>
+                {/* PAH values and sample dates have no API source yet. */}
+                <td className="px-3 py-3 text-center text-slate">{BLANK}</td>
+                <td className="px-3 py-3 text-center text-slate tabular-nums">
+                  {BLANK}
+                </td>
+                <td className="px-3 py-3 text-center text-navy">
+                  {formatDate(forecastDate)}
+                </td>
+                <td className="px-3 py-3 text-center font-medium text-slate tabular-nums">
+                  {BLANK}
+                </td>
+                <td className="px-3 py-3 text-center text-slate tabular-nums">
+                  {BLANK}
+                </td>
+                <td className="px-3 py-3 text-center text-slate">{BLANK}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

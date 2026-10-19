@@ -65,8 +65,8 @@ next-app/
 │       └── button.tsx      # shadcn Button (Base UI + cva variants)
 ├── hooks/                  # (empty — custom hooks go here)
 ├── lib/
-│   ├── dashboard-colors.ts # Fixed map/legend status colors (theme-independent)
-│   ├── dashboard-data.ts   # Sample stations, forecast, and chart data
+│   ├── api.ts              # Backend fetch helper (hydrometric stations)
+│   ├── dashboard-data.ts   # Shared types + placeholder chart data
 │   └── utils.ts            # re-exports `cn` from the `cn` package
 ├── public/                 # (empty — static assets go here)
 ├── AGENTS.md               # Next.js-managed agent instructions
@@ -87,22 +87,25 @@ next-app/
 ## Dashboard
 
 The app is a single-page environmental monitoring dashboard. `app/page.tsx` renders
-`components/dashboard/dashboard.tsx`, which lays out:
+`components/dashboard/dashboard.tsx`, which fetches the station list from the backend and
+lays out:
 
-- **KPI cards** (`kpi-cards.tsx`) — total stations, elevated-risk count, normal count,
-  derived from `lib/dashboard-data.ts`.
+- **KPI cards** (`kpi-cards.tsx`) — total station count. The elevated-risk and normal
+  counts show `—` until a PAH endpoint exists.
 - **Station map** (`forecast-map.tsx`) — MapLibre GL with a free OpenTopoMap raster
-  basemap (no API key). Stations are drawn as coloured circle markers keyed by
-  `riskStatus`; clicking one reports the station back to the dashboard, which shows a
-  detail popup. MapLibre's worker URL is set explicitly for the bundled build.
-- **Forecast table** (`forecast-table.tsx`) — per-station historical vs. predicted PAH,
-  the change %, and a colour-coded status badge.
+  basemap (no API key). Stations are drawn as single-colour circle markers; clicking one
+  opens a detail card anchored to that marker, which follows the map while panning or
+  zooming. MapLibre's worker URL is set explicitly for the bundled build.
+- **Forecast table** (`forecast-table.tsx`) — one row per station. The PAH, change,
+  status, and sample-date columns show `—` until a PAH endpoint exists.
 - **PAH chart** (`pah-chart.tsx`) — Recharts line chart with a reference line marking the
-  last historical reading and a dashed 7-day forecast segment.
+  last historical reading and a dashed 7-day forecast segment. It still uses placeholder
+  chart data from `lib/dashboard-data.ts`.
 
-Data lives in `lib/dashboard-data.ts` (hand-written sample values). The field names match
-the intended FastAPI endpoints, so the exports can be swapped for API calls later. The
-map and table show `visibleStations` (the first five); KPIs count all `stations`.
+Stations are fetched in `dashboard.tsx` through `lib/api.ts`
+(`GET /api/v1/get-hydrometric-stations/`, base URL from `NEXT_PUBLIC_API_BASE_URL`). The
+API returns station metadata only — no PAH values — so all PAH-derived UI is blank for
+now. `lib/dashboard-data.ts` keeps the shared types plus the placeholder chart data.
 
 ---
 
@@ -128,8 +131,8 @@ Conventions:
   `#222e46` (card) with `#3a4866` edges — a deliberately airy blue-gray. The status and
   accent tokens are brightened to match so text still clears AA on the lighter cards.
 - **Map stays theme-independent.** The OpenTopoMap basemap is always light, so the map
-  markers and their legend use the fixed colours in `lib/dashboard-colors.ts`
-  (`riskColors`) rather than the theme tokens.
+  uses a fixed marker colour (`MARKER_COLOR` in `forecast-map.tsx`) rather than a theme
+  token, which would flip in dark mode and lose contrast on the pale basemap.
 
 ---
 
