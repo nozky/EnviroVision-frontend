@@ -56,7 +56,7 @@ export function Dashboard() {
             </h2>
             <p className="text-sm text-slate">7-day forecast for Jasper area</p>
           </header>
-          <div className="relative h-[420px] flex-1 overflow-hidden rounded-b-xl">
+          <div className="relative h-105 flex-1 overflow-hidden rounded-b-xl">
             <ForecastMap onSelectStation={setSelected} />
 
             {/* Risk legend, bottom-left of the map. */}
