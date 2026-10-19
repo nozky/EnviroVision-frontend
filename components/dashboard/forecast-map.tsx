@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react"
 import * as maplibregl from "maplibre-gl"
+import { Loader2 } from "lucide-react"
 import "maplibre-gl/dist/maplibre-gl.css"
 
-import type { Station } from "@/lib/dashboard-data"
+import type { HydrocarbonPrediction, Station } from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
 
 // Free topographic basemap from OpenTopoMap. No API key needed.
@@ -38,13 +39,30 @@ const MARKER_COLOR = "#0287f4"
 type ForecastMapProps = {
   stations: Station[]
   forecastDate: string
+  // Tells the dashboard which station the user clicked.
+  onSelectStation?: (station: Station) => void
+  // The station the dashboard currently has selected, and its data.
+  selectedStation: Station | null
+  prediction: HydrocarbonPrediction | null
+  predictionLoading: boolean
+  predictionError: string | null
 }
 
-export function ForecastMap({ stations, forecastDate }: ForecastMapProps) {
+export function ForecastMap({
+  stations,
+  forecastDate,
+  onSelectStation,
+  selectedStation,
+  prediction,
+  predictionLoading,
+  predictionError,
+}: ForecastMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   // The click handler reads the latest stations without re-creating the map.
   const stationsRef = useRef(stations)
+  // The map is built once, so it keeps the newest click handler in a ref too.
+  const onSelectRef = useRef(onSelectStation)
 
   // The station whose marker was clicked and its on-screen pixel position.
   const [selected, setSelected] = useState<Station | null>(null)
@@ -56,6 +74,11 @@ export function ForecastMap({ stations, forecastDate }: ForecastMapProps) {
   useEffect(() => {
     stationsRef.current = stations
   }, [stations])
+
+  // Keep the click callback current without rebuilding the map.
+  useEffect(() => {
+    onSelectRef.current = onSelectStation
+  }, [onSelectStation])
 
   const closeCard = () => {
     selectedRef.current = null
@@ -165,6 +188,9 @@ export function ForecastMap({ stations, forecastDate }: ForecastMapProps) {
         setSelected(station)
         const point = map.project([station.longitude, station.latitude])
         setAnchor({ x: point.x, y: point.y })
+
+        // Let the dashboard know, so it can fetch this station's numbers.
+        onSelectRef.current?.(station)
       })
 
       map.on("mouseenter", "stations-circle", () => {
@@ -183,6 +209,17 @@ export function ForecastMap({ stations, forecastDate }: ForecastMapProps) {
 
   // Drop the card below the marker when it would otherwise run off the top.
   const flipped = anchor ? anchor.y < FLIP_THRESHOLD : false
+
+  // Only show the dashboard's data if it belongs to the station in this card.
+  const isCurrent = selected?.station_number === selectedStation?.station_number
+  const cardPrediction = isCurrent ? prediction : null
+  const latest = cardPrediction?.data[cardPrediction.data.length - 1]
+  // A simple rule: predicting more than we measured counts as elevated.
+  const change =
+    latest?.actual != null && latest.predicted != null
+      ? latest.predicted - latest.actual
+      : null
+  const status = change == null ? "—" : change > 0 ? "Elevated" : "Normal"
 
   return (
     <div className="relative h-full w-full">
@@ -211,14 +248,39 @@ export function ForecastMap({ stations, forecastDate }: ForecastMapProps) {
             </button>
           </div>
           <p className="mt-1 text-slate">Station {selected.station_number}</p>
-          <p className="mt-1">
-            Predicted PAH: <span className="font-medium">—</span>
-          </p>
+
+          {/* While waiting, show a spinner; then the station's own numbers. */}
+          {isCurrent && predictionLoading ? (
+            <p className="mt-2 flex items-center gap-2 text-slate">
+              <Loader2 className="size-3.5 animate-spin text-brand-blue" />
+              Loading predictions…
+            </p>
+          ) : isCurrent && predictionError ? (
+            <p className="mt-2 text-warn">{predictionError}</p>
+          ) : (
+            <>
+              <p className="mt-1">
+                Latest measured:{" "}
+                <span className="font-medium">
+                  {latest?.actual != null ? `${latest.actual.toFixed(4)} µg/L` : "—"}
+                </span>
+              </p>
+              <p>
+                Predicted:{" "}
+                <span className="font-medium">
+                  {latest?.predicted != null
+                    ? `${latest.predicted.toFixed(4)} µg/L`
+                    : "—"}
+                </span>
+              </p>
+            </>
+          )}
+
           <p>
             Forecast date: <span className="font-medium">{forecastDate}</span>
           </p>
           <p>
-            Status: <span className="font-medium">—</span>
+            Status: <span className="font-medium">{status}</span>
           </p>
 
           {/* Tail pointing back at the marker. */}

@@ -1,18 +1,22 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
+import { Loader2 } from "lucide-react"
 import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts"
 
-import { pahForecast, pahHistory } from "@/lib/dashboard-data"
+import {
+  pahForecast,
+  pahHistory,
+  type HydrocarbonPrediction,
+} from "@/lib/dashboard-data"
 
 // Chart colors live in CSS variables, so read them from the document instead of
 // hardcoding hex values. This keeps the chart in step with the light/dark
@@ -67,24 +71,22 @@ function useChartColors(): ChartColors {
   )
 }
 
-// The history and the single forecast point in one list, so a single line
-// continues from the last reading into the prediction.
-const data = [
+// One row the chart draws: the measured value and the predicted value for a day.
+type ChartPoint = {
+  date: string
+  actual: number | null
+  predicted: number | null
+}
+
+// Shown only until the first station loads. The same shape as the API data.
+const fallbackData: ChartPoint[] = [
   ...pahHistory.map((point) => ({
     date: point.date,
-    historical: point.pah,
-    forecast: null as number | null,
+    actual: point.pah,
+    predicted: null,
   })),
-  {
-    // A repeated point bridges the two series so the line has no gap.
-    date: pahHistory[pahHistory.length - 1].date,
-    historical: pahHistory[pahHistory.length - 1].pah,
-    forecast: pahHistory[pahHistory.length - 1].pah,
-  },
-  { date: pahForecast.date, historical: null, forecast: pahForecast.pah },
+  { date: pahForecast.date, actual: null, predicted: pahForecast.pah },
 ]
-
-const historyDate = pahHistory[pahHistory.length - 1].date
 
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat("en-CA", {
@@ -93,8 +95,33 @@ const formatDate = (date: string) =>
     timeZone: "UTC",
   }).format(new Date(date))
 
-export function PahChart() {
+type PahChartProps = {
+  // The prediction data for the selected station, or null before one loads.
+  prediction: HydrocarbonPrediction | null
+  // True while the backend is being asked for data.
+  loading: boolean
+  error: string | null
+  // The station these numbers belong to, shown in the sub-heading.
+  stationNumber: string | null
+}
+
+export function PahChart({
+  prediction,
+  loading,
+  error,
+  stationNumber,
+}: PahChartProps) {
   const colors = useChartColors()
+
+  // Turn the API rows into chart rows. Until data arrives, use the fallback.
+  const data: ChartPoint[] =
+    prediction && prediction.data.length > 0
+      ? prediction.data.map((point) => ({
+          date: point.sample_datetime,
+          actual: point.actual,
+          predicted: point.predicted,
+        }))
+      : fallbackData
 
   return (
     <section className="rounded-xl border border-card-edge bg-card p-5 shadow-sm">
@@ -103,17 +130,17 @@ export function PahChart() {
           PAH Concentration Over Time (Weekly)
         </h2>
         <p className="text-sm text-slate">
-          Athabasca River near Jasper (07AA002)
+          {stationNumber
+            ? `Station ${stationNumber}`
+            : "Athabasca River near Jasper (07AA002)"}
         </p>
       </header>
 
-      {/* Period labels sit above the plot, either side of the dividing line. */}
-      <div className="flex justify-between px-12 text-xs text-slate">
-        <span>Historical Readings (weekly)</span>
-        <span className="text-forecast">7-Day Forecast</span>
-      </div>
+      {error && (
+        <p className="mb-3 text-sm text-warn">{error}</p>
+      )}
 
-      <div className="h-[260px] w-full">
+      <div className="relative h-65 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 24, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
@@ -126,9 +153,8 @@ export function PahChart() {
               tick={{ fill: colors.slate, fontSize: 12 }}
             />
             <YAxis
-              domain={[0, 0.3]}
-              ticks={[0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]}
-              tickFormatter={(value: number) => value.toFixed(2)}
+              domain={[0, "auto"]}
+              tickFormatter={(value: number) => value.toFixed(3)}
               tickLine={false}
               axisLine={false}
               width={48}
@@ -142,47 +168,51 @@ export function PahChart() {
             />
             <Tooltip
               formatter={(value, name) => [
-                Number(value).toFixed(3),
-                name === "historical" ? "Historical" : "Forecast",
+                Number(value).toFixed(4),
+                name === "actual" ? "Measured" : "Predicted",
               ]}
               labelFormatter={(label) => formatDate(String(label))}
             />
-            <ReferenceLine
-              x={historyDate}
-              stroke={colors.slate}
-              strokeDasharray="4 4"
-            />
             <Line
               type="monotone"
-              dataKey="historical"
+              dataKey="actual"
               stroke={colors.blue}
               strokeWidth={2}
               dot={{ r: 4, fill: colors.blue }}
               activeDot={{ r: 6 }}
               connectNulls
-              name="historical"
+              name="actual"
             />
             <Line
               type="monotone"
-              dataKey="forecast"
+              dataKey="predicted"
               stroke={colors.forecast}
               strokeWidth={2}
-              dot={{ r: 5, fill: colors.forecast }}
+              dot={{ r: 4, fill: colors.forecast }}
+              activeDot={{ r: 6 }}
               connectNulls
-              name="forecast"
+              name="predicted"
             />
           </LineChart>
         </ResponsiveContainer>
+
+        {/* A soft cover with a spinner while the numbers are on their way. */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-lg bg-card/80 text-sm text-slate">
+            <Loader2 className="size-5 animate-spin text-brand-blue" />
+            Loading predictions…
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-center gap-5 text-xs text-slate">
         <span className="flex items-center gap-2">
           <span className="size-2.5 rounded-full bg-brand-blue" />
-          Historical (weekly reading)
+          Measured (weekly reading)
         </span>
         <span className="flex items-center gap-2">
           <span className="size-2.5 rounded-full bg-forecast" />
-          Forecast (XGBoost, 7 days ahead)
+          Predicted (XGBoost model)
         </span>
       </div>
     </section>

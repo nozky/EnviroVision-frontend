@@ -6,6 +6,12 @@
 // The date the dashboard opens on.
 export const defaultForecastDate = "2026-10-24"
 
+// The station the dashboard shows first, before the user clicks anything.
+export const defaultStationNumber = "07AA002"
+
+// How many days of data we ask the backend for.
+export const defaultPredictionLimit = 7
+
 // One station as returned by GET /api/v1/get-hydrometric-stations/.
 export type ApiStation = {
   station_number: string
@@ -48,3 +54,20 @@ export const pahHistory = [
 // The single seven-day forecast point that continues the history above.
 // TODO: placeholder until a PAH/forecast endpoint exists.
 export const pahForecast = { date: "2026-10-24", pah: 0.14 }
+
+// One day of a prediction series: the value that was measured and the value
+// the model guessed for that same day. Either can be missing (null), so we
+// check before showing a number.
+export type PredictionPoint = {
+  sample_datetime: string
+  actual: number | null
+  predicted: number | null
+}
+
+// The full reply from GET /api/v1/station/{station}/predict-hydrocarbon.
+// `station_number` tells us which station the rows belong to, and `data` holds
+// one entry per day.
+export type HydrocarbonPrediction = {
+  station_number: string
+  data: PredictionPoint[]
+}

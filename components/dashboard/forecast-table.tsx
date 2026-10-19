@@ -1,4 +1,6 @@
-import type { Station } from "@/lib/dashboard-data"
+import { Loader2 } from "lucide-react"
+
+import type { HydrocarbonPrediction, Station } from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
 
 const headers = [
@@ -32,9 +34,22 @@ function formatDate(date: string) {
 type ForecastTableProps = {
   stations: Station[]
   forecastDate: string
+  // Tells the dashboard which row the user clicked.
+  onSelectStation?: (station: Station) => void
+  // The station the dashboard has selected, plus its data.
+  selectedStation: Station | null
+  prediction: HydrocarbonPrediction | null
+  predictionLoading: boolean
 }
 
-export function ForecastTable({ stations, forecastDate }: ForecastTableProps) {
+export function ForecastTable({
+  stations,
+  forecastDate,
+  onSelectStation,
+  selectedStation,
+  prediction,
+  predictionLoading,
+}: ForecastTableProps) {
   return (
     <section className="rounded-xl border border-card-edge bg-card shadow-sm">
       <header className="p-5 pb-3">
@@ -64,32 +79,79 @@ export function ForecastTable({ stations, forecastDate }: ForecastTableProps) {
             </tr>
           </thead>
           <tbody>
-            {stations.map((station) => (
-              <tr
-                key={station.station_number}
-                className="border-b border-card-edge last:border-0"
-              >
-                <td className="px-3 py-3 font-medium text-navy">
-                  {station.station_number}
-                </td>
-                <td className="px-3 py-3 text-navy">{station.station_name}</td>
-                {/* PAH values and sample dates have no API source yet. */}
-                <td className="px-3 py-3 text-center text-slate">{BLANK}</td>
-                <td className="px-3 py-3 text-center text-slate tabular-nums">
-                  {BLANK}
-                </td>
-                <td className="px-3 py-3 text-center text-navy">
-                  {formatDate(forecastDate)}
-                </td>
-                <td className="px-3 py-3 text-center font-medium text-slate tabular-nums">
-                  {BLANK}
-                </td>
-                <td className="px-3 py-3 text-center text-slate tabular-nums">
-                  {BLANK}
-                </td>
-                <td className="px-3 py-3 text-center text-slate">{BLANK}</td>
-              </tr>
-            ))}
+            {stations.map((station) => {
+              // Is this the row the user picked?
+              const isSelected =
+                selectedStation?.station_number === station.station_number
+              const cardPrediction = isSelected ? prediction : null
+              // The newest day in the series is the "latest" one.
+              const latest =
+                cardPrediction?.data[cardPrediction.data.length - 1]
+
+              const change =
+                latest?.actual != null && latest.predicted != null
+                  ? latest.predicted - latest.actual
+                  : null
+              // A simple rule: predicting more than we measured is elevated.
+              const status =
+                change == null ? BLANK : change > 0 ? "Elevated" : "Normal"
+
+              return (
+                <tr
+                  key={station.station_number}
+                  // Clicking a row picks that station, same as a map marker.
+                  onClick={() => onSelectStation?.(station)}
+                  // Keyboard users can press Enter or Space to pick it too.
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      onSelectStation?.(station)
+                    }
+                  }}
+                  tabIndex={0}
+                  aria-selected={isSelected}
+                  aria-busy={isSelected && predictionLoading}
+                  className={cn(
+                    "cursor-pointer border-b border-card-edge last:border-0 hover:bg-table-head/60 focus-visible:outline-2 focus-visible:outline-brand-blue",
+                    isSelected && "bg-table-head"
+                  )}
+                >
+                  <td className="px-3 py-3 font-medium text-navy">
+                    <span className="flex items-center gap-2">
+                      {station.station_number}
+                      {isSelected && predictionLoading && (
+                        <Loader2 className="size-3.5 animate-spin text-brand-blue" />
+                      )}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-navy">{station.station_name}</td>
+                  <td className="px-3 py-3 text-center text-navy">
+                    {latest ? formatDate(latest.sample_datetime) : BLANK}
+                  </td>
+                  <td className="px-3 py-3 text-center text-navy tabular-nums">
+                    {latest?.actual != null ? latest.actual.toFixed(4) : BLANK}
+                  </td>
+                  <td className="px-3 py-3 text-center text-navy">
+                    {formatDate(forecastDate)}
+                  </td>
+                  <td className="px-3 py-3 text-center font-medium text-navy tabular-nums">
+                    {isSelected && predictionLoading && !latest ? (
+                      <Loader2 className="mx-auto size-3.5 animate-spin text-brand-blue" />
+                    ) : latest?.predicted != null ? (
+                      latest.predicted.toFixed(4)
+                    ) : (
+                      BLANK
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-center text-navy tabular-nums">
+                    {change != null
+                      ? `${change >= 0 ? "+" : ""}${change.toFixed(4)}`
+                      : BLANK}
+                  </td>
+                  <td className="px-3 py-3 text-center text-navy">{status}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
