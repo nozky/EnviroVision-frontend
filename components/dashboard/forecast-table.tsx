@@ -2,7 +2,7 @@ import {
   changePercent,
   latestSampleDate,
   riskStatus,
-  visibleStations,
+  type Station,
 } from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
 
@@ -32,10 +32,11 @@ function formatDate(date: string) {
 }
 
 type ForecastTableProps = {
+  stations: Station[]
   forecastDate: string
 }
 
-export function ForecastTable({ forecastDate }: ForecastTableProps) {
+export function ForecastTable({ stations, forecastDate }: ForecastTableProps) {
   return (
     <section className="rounded-xl border border-card-edge bg-card shadow-sm">
       <header className="p-5 pb-3">
@@ -65,7 +66,7 @@ export function ForecastTable({ forecastDate }: ForecastTableProps) {
             </tr>
           </thead>
           <tbody>
-            {visibleStations.map((station) => {
+            {stations.map((station) => {
               const change = changePercent(
                 station.historical_pah_ug_l,
                 station.predicted_pah_ug_l

@@ -103,7 +103,7 @@ export function PahChart() {
           PAH Concentration Over Time (Weekly)
         </h2>
         <p className="text-sm text-slate">
-          Athabasca River at Jasper (07AA002)
+          Athabasca River near Jasper (07AA002)
         </p>
       </header>
 

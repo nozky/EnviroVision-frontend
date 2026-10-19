@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react"
 import * as maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 
-import { riskStatus, visibleStations, type Station } from "@/lib/dashboard-data"
+import { riskStatus, type Station } from "@/lib/dashboard-data"
 import { riskColors } from "@/lib/dashboard-colors"
 
 // Free topographic basemap from OpenTopoMap. No API key needed.
@@ -21,19 +21,27 @@ const BASEMAP_STYLE: maplibregl.StyleSpecification = {
   layers: [{ id: "topo", type: "raster", source: "topo" }],
 }
 
-// Jasper National Park and the Athabasca River. MapLibre expects
-// [longitude, latitude].
-const JASPER_CENTER: [number, number] = [-118.08, 52.89]
-const START_ZOOM = 10
+// Jasper National Park and the Athabasca River, used until the markers load.
+// MapLibre expects [longitude, latitude].
+const DEFAULT_CENTER: [number, number] = [-118.08, 52.89]
+const DEFAULT_ZOOM = 8
 
 type ForecastMapProps = {
+  stations: Station[]
   // Called with the station a marker was clicked on.
   onSelectStation: (station: Station) => void
 }
 
-export function ForecastMap({ onSelectStation }: ForecastMapProps) {
+export function ForecastMap({ stations, onSelectStation }: ForecastMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  // The click handler reads the latest stations without re-creating the map.
+  const stationsRef = useRef(stations)
+
+  // Keep the ref in step with the prop outside of render.
+  useEffect(() => {
+    stationsRef.current = stations
+  }, [stations])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -47,8 +55,8 @@ export function ForecastMap({ onSelectStation }: ForecastMapProps) {
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASEMAP_STYLE,
-      center: JASPER_CENTER,
-      zoom: START_ZOOM,
+      center: DEFAULT_CENTER,
+      zoom: DEFAULT_ZOOM,
     })
     mapRef.current = map
 
@@ -58,11 +66,13 @@ export function ForecastMap({ onSelectStation }: ForecastMapProps) {
     map.addControl(new maplibregl.ScaleControl(), "bottom-right")
 
     map.on("load", () => {
+      const current = stationsRef.current
+
       map.addSource("stations", {
         type: "geojson",
         data: {
           type: "FeatureCollection",
-          features: visibleStations.map((station) => ({
+          features: current.map((station) => ({
             type: "Feature",
             geometry: {
               type: "Point",
@@ -106,10 +116,19 @@ export function ForecastMap({ onSelectStation }: ForecastMapProps) {
         },
       })
 
+      // Zoom to fit every marker; the network spans well beyond Jasper townsite.
+      if (current.length > 0) {
+        const bounds = new maplibregl.LngLatBounds()
+        for (const station of current) {
+          bounds.extend([station.longitude, station.latitude])
+        }
+        map.fitBounds(bounds, { padding: 60, maxZoom: 11 })
+      }
+
       // Clicking a marker reports that station back to the dashboard.
       map.on("click", "stations-circle", (event) => {
         const number = event.features?.[0]?.properties?.station_number
-        const station = visibleStations.find(
+        const station = stationsRef.current.find(
           (item) => item.station_number === number
         )
         if (station) onSelectStation(station)

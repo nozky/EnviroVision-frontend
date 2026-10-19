@@ -1,39 +1,43 @@
 import { CheckCircle2, MapPin, TriangleAlert } from "lucide-react"
 
-import { riskStatus, stations } from "@/lib/dashboard-data"
+import { riskStatus, type Station } from "@/lib/dashboard-data"
 
-// Counts are worked out from the whole station list, not just the five rows
-// shown in the table.
-const total = stations.length
-const elevated = stations.filter(
-  (station) => riskStatus(station.predicted_pah_ug_l) === "Elevated"
-).length
-const normal = stations.filter(
-  (station) => riskStatus(station.predicted_pah_ug_l) === "Normal"
-).length
+type KpiCardsProps = {
+  stations: Station[]
+}
 
-const cards = [
-  {
-    label: "Total Stations",
-    value: total,
-    icon: MapPin,
-    iconClass: "bg-brand-blue-soft text-brand-blue",
-  },
-  {
-    label: "Elevated Risk",
-    value: elevated,
-    icon: TriangleAlert,
-    iconClass: "bg-warn-soft text-warn",
-  },
-  {
-    label: "Normal",
-    value: normal,
-    icon: CheckCircle2,
-    iconClass: "bg-good-soft text-good",
-  },
-]
+export function KpiCards({ stations }: KpiCardsProps) {
+  // Counts are worked out from the whole station list, not just the rows shown
+  // in the table.
+  const total = stations.length
+  const elevated = stations.filter(
+    (station) => riskStatus(station.predicted_pah_ug_l) === "Elevated"
+  ).length
+  const normal = stations.filter(
+    (station) => riskStatus(station.predicted_pah_ug_l) === "Normal"
+  ).length
 
-export function KpiCards() {
+  const cards = [
+    {
+      label: "Total Stations",
+      value: total,
+      icon: MapPin,
+      iconClass: "bg-brand-blue-soft text-brand-blue",
+    },
+    {
+      label: "Elevated Risk",
+      value: elevated,
+      icon: TriangleAlert,
+      iconClass: "bg-warn-soft text-warn",
+    },
+    {
+      label: "Normal",
+      value: normal,
+      icon: CheckCircle2,
+      iconClass: "bg-good-soft text-good",
+    },
+  ]
+
   return (
     <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {cards.map((card) => (
