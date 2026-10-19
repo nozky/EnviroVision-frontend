@@ -13,6 +13,7 @@ import {
   defaultPredictionLimit,
   defaultStationNumber,
   getStationStatus,
+  STATUS_THRESHOLDS,
   type HydrocarbonPrediction,
   type Station,
   type StationStatus,
@@ -137,7 +138,7 @@ export function Dashboard() {
     })
   }, [stations])
 
-  // The status of every station, worked out from its numbers.
+  // The status of every station, read against the fixed guideline bands.
   const statuses = useMemo(() => {
     const map: Record<string, StationStatus> = {}
     for (const station of stations ?? []) {
@@ -148,8 +149,11 @@ export function Dashboard() {
     return map
   }, [stations, predictions])
 
-  const elevatedCount = Object.values(statuses).filter(
-    (status) => status === "elevated"
+  const highCount = Object.values(statuses).filter(
+    (status) => status === "high"
+  ).length
+  const mediumCount = Object.values(statuses).filter(
+    (status) => status === "medium"
   ).length
   const normalCount = Object.values(statuses).filter(
     (status) => status === "normal"
@@ -166,62 +170,68 @@ export function Dashboard() {
       : null
 
   return (
-    <main className="min-h-screen bg-page p-8 text-navy">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-12 items-center justify-center rounded-full bg-good-soft">
-            <Leaf className="size-6 text-good" />
+    <main className="min-h-screen bg-page p-3 text-navy lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden lg:p-4">
+      <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 items-center justify-center rounded-full bg-good-soft">
+            <Leaf className="size-5 text-good" />
           </span>
           <div>
-            <h1 className="text-3xl font-bold text-navy">EnviroVision</h1>
-            <p className="text-sm text-slate">
+            <h1 className="text-xl font-bold leading-tight text-navy">
+              EnviroVision
+            </h1>
+            <p className="text-xs text-slate">
               Environmental Monitoring &amp; Forecasting
             </p>
           </div>
         </div>
 
-        <label className="flex flex-col gap-1 text-xs font-medium text-slate">
+        <label className="flex flex-col gap-0.5 text-xs font-medium text-slate">
           Forecast date
           <input
             type="date"
             value={forecastDate}
             onChange={(event) => setForecastDate(event.target.value)}
-            className="rounded-lg border border-card-edge bg-card px-3 py-2 text-sm text-navy shadow-sm outline-none focus:border-brand-blue"
+            className="rounded-lg border border-card-edge bg-card px-2.5 py-1.5 text-sm text-navy shadow-sm outline-none focus:border-brand-blue"
           />
         </label>
       </header>
 
       {error && (
-        <div className="rounded-xl border border-card-edge bg-card p-5 text-sm text-slate shadow-sm">
+        <div className="shrink-0 rounded-xl border border-card-edge bg-card p-4 text-sm text-slate shadow-sm">
           {error}
         </div>
       )}
 
       {!error && !stations && (
-        <div className="rounded-xl border border-card-edge bg-card p-5 text-sm text-slate shadow-sm">
+        <div className="shrink-0 rounded-xl border border-card-edge bg-card p-4 text-sm text-slate shadow-sm">
           Loading stations…
         </div>
       )}
 
       {stations && (
-        <>
-          <KpiCards
-            stations={stations}
-            elevatedCount={elevatedCount}
-            normalCount={normalCount}
-          />
+        <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
+          <div className="shrink-0">
+            <KpiCards
+              stations={stations}
+              highCount={highCount}
+              mediumCount={mediumCount}
+              normalCount={normalCount}
+              thresholds={STATUS_THRESHOLDS}
+            />
+          </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
-            <section className="flex flex-col rounded-xl border border-card-edge bg-card shadow-sm">
-              <header className="p-5 pb-3">
-                <h2 className="text-base font-semibold text-navy">
+          <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
+            <section className="flex min-h-80 flex-col rounded-xl border border-card-edge bg-card shadow-sm lg:min-h-0">
+              <header className="shrink-0 px-4 pt-3 pb-2">
+                <h2 className="text-sm font-semibold text-navy">
                   Predicted PAH Concentration (µg/L)
                 </h2>
-                <p className="text-sm text-slate">
+                <p className="text-xs text-slate">
                   7-day forecast for Jasper area
                 </p>
               </header>
-              <div className="relative h-105 flex-1 overflow-hidden rounded-b-xl">
+              <div className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl">
                 <ForecastMap
                   stations={stations}
                   forecastDate={forecastDate}
@@ -235,28 +245,36 @@ export function Dashboard() {
               </div>
             </section>
 
-            <StationDetail
-              station={selectedStation}
-              prediction={selectedPrediction}
+            <div className="lg:min-h-0 lg:overflow-y-auto">
+              <StationDetail
+                station={selectedStation}
+                prediction={selectedPrediction}
+                status={
+                  selectedStation
+                    ? (statuses[selectedStation.station_number] ?? "normal")
+                    : "normal"
+                }
+                loading={selectedLoading}
+                error={selectedError}
+                forecastDate={forecastDate}
+                onRetry={() => {
+                  if (selectedStation)
+                    void retryStation(selectedStation.station_number)
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            <PahChart
+              prediction={selectedPrediction ?? null}
               loading={selectedLoading}
               error={selectedError}
-              forecastDate={forecastDate}
-              onRetry={() => {
-                if (selectedStation) void retryStation(selectedStation.station_number)
-              }}
+              stationNumber={selectedStation?.station_number ?? null}
             />
           </div>
-        </>
+        </div>
       )}
-
-      <div className="mt-4">
-        <PahChart
-          prediction={selectedPrediction ?? null}
-          loading={selectedLoading}
-          error={selectedError}
-          stationNumber={selectedStation?.station_number ?? null}
-        />
-      </div>
     </main>
   )
 }

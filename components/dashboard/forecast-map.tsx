@@ -6,7 +6,6 @@ import { Loader2 } from "lucide-react"
 import "maplibre-gl/dist/maplibre-gl.css"
 
 import {
-  getStationStatus,
   latestPoint,
   STATUS_META,
   type HydrocarbonPrediction,
@@ -54,7 +53,7 @@ function buildPoints(
     },
     properties: {
       station_number: station.station_number,
-      status: statuses[station.station_number] ?? "unknown",
+      status: statuses[station.station_number] ?? "normal",
       selected: station.station_number === selectedNumber,
     },
   }))
@@ -183,11 +182,11 @@ export function ForecastMap({
           "circle-color": [
             "match",
             ["get", "status"],
-            "elevated",
-            STATUS_META.elevated.color,
-            "normal",
+            "high",
+            STATUS_META.high.color,
+            "medium",
+            STATUS_META.medium.color,
             STATUS_META.normal.color,
-            STATUS_META.unknown.color,
           ],
           "circle-radius": ["case", ["get", "selected"], 13, 9],
           "circle-stroke-color": "#ffffff",
@@ -274,7 +273,9 @@ export function ForecastMap({
   // Only show the dashboard's data if it belongs to the station in this card.
   const isCurrent = selected?.station_number === selectedStation?.station_number
   const latest = isCurrent ? latestPoint(selectedPrediction) : null
-  const status = isCurrent ? getStationStatus(selectedPrediction) : "unknown"
+  const status: StationStatus = isCurrent
+    ? (statuses[selected?.station_number ?? ""] ?? "normal")
+    : "normal"
   const meta = STATUS_META[status]
 
   return (

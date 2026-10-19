@@ -101,6 +101,7 @@
     --good: #029c4b;
     --good-soft: #e8faef;
     --forecast: #a55701;
+    --forecast-soft: #fdf1e3;
 }
 
 @theme inline {
@@ -120,6 +121,7 @@
     --color-good: var(--good);
     --color-good-soft: var(--good-soft);
     --color-forecast: var(--forecast);
+    --color-forecast-soft: var(--forecast-soft);
 }
 
 .dark {
@@ -180,6 +182,7 @@
     --good: #5ce58f;
     --good-soft: #1a3d29;
     --forecast: #ffbe66;
+    --forecast-soft: #3d2f1a;
 }
 
 @layer base {

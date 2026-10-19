@@ -72,9 +72,18 @@ export type HydrocarbonPrediction = {
   data: PredictionPoint[]
 }
 
-// How a station looks at a glance. "unknown" means we have not loaded its
-// numbers yet, or the numbers were missing.
-export type StationStatus = "elevated" | "normal" | "unknown"
+// How a station looks at a glance, based on the Canadian long-term aquatic-life
+// guideline for PAH (0.015 µg/L).
+export type StationStatus = "normal" | "medium" | "high"
+
+// The guideline values the status is read against.
+//
+// The long-term aquatic-life guideline is 0.015 µg/L. Anything at or below
+// 0.010 µg/L is comfortably below it, so we call that normal; above 0.010 up to
+// 0.015 is approaching the guideline, so we call that medium; above 0.015 has
+// crossed the guideline, so we call that high.
+export const PAH_GUIDELINE_UG_PER_L = 0.015
+export const PAH_MEDIUM_CUTOFF_UG_PER_L = 0.01
 
 // The last day in a prediction series, or null when there is nothing to read.
 export function latestPoint(
@@ -84,15 +93,34 @@ export function latestPoint(
   return prediction.data[prediction.data.length - 1]
 }
 
-// Work out a station's status from its numbers. This is a simple rule: when the
-// model predicts more than was actually measured, we call it elevated. Swap
-// this for a real guideline threshold later if one is decided.
+// The cut-offs every station is read against, kept in one place so the KPI cards
+// and the status rule cannot drift apart. Unlike the old min/max spreading, these
+// are fixed guideline values rather than something derived from the data.
+export type StatusThresholds = {
+  medium: number
+  guideline: number
+}
+
+export const STATUS_THRESHOLDS: StatusThresholds = {
+  medium: PAH_MEDIUM_CUTOFF_UG_PER_L,
+  guideline: PAH_GUIDELINE_UG_PER_L,
+}
+
+// Work out a station's status from its latest predicted value, read against the
+// guideline bands above:
+//   <= 0.010          -> normal  (below the guideline, with a margin)
+//   > 0.010 to 0.015  -> medium  (approaching the guideline)
+//   > 0.015           -> high    (guideline exceeded)
+// Before any numbers load, or when the value is missing, we treat it as normal
+// so nothing is flagged without evidence.
 export function getStationStatus(
   prediction: HydrocarbonPrediction | null | undefined
 ): StationStatus {
   const point = latestPoint(prediction)
-  if (!point || point.actual == null || point.predicted == null) return "unknown"
-  return point.predicted > point.actual ? "elevated" : "normal"
+  if (!point || point.predicted == null) return "normal"
+  if (point.predicted > STATUS_THRESHOLDS.guideline) return "high"
+  if (point.predicted > STATUS_THRESHOLDS.medium) return "medium"
+  return "normal"
 }
 
 // The label to show, the canvas colour for the map marker, and the CSS classes
@@ -102,22 +130,22 @@ export const STATUS_META: Record<
   StationStatus,
   { label: string; color: string; softClass: string; textClass: string }
 > = {
-  elevated: {
-    label: "Elevated",
+  high: {
+    label: "High",
     color: "#fd2e2e",
     softClass: "bg-warn-soft",
     textClass: "text-warn",
+  },
+  medium: {
+    label: "Medium",
+    color: "#a55701",
+    softClass: "bg-forecast-soft",
+    textClass: "text-forecast",
   },
   normal: {
     label: "Normal",
     color: "#029c4b",
     softClass: "bg-good-soft",
     textClass: "text-good",
-  },
-  unknown: {
-    label: "Unknown",
-    color: "#0287f4",
-    softClass: "bg-brand-blue-soft",
-    textClass: "text-brand-blue",
   },
 }

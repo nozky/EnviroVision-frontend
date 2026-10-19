@@ -124,96 +124,94 @@ export function PahChart({
       : fallbackData
 
   return (
-    <section className="rounded-xl border border-card-edge bg-card p-5 shadow-sm">
-      <header className="mb-4">
-        <h2 className="text-base font-semibold text-navy">
-          PAH Concentration Over Time (Weekly)
-        </h2>
-        <p className="text-sm text-slate">
-          {stationNumber
-            ? `Station ${stationNumber}`
-            : "Athabasca River near Jasper (07AA002)"}
-        </p>
-      </header>
+    <section className="rounded-xl border border-card-edge bg-card p-3 shadow-sm">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-5">
+        {/* Title and legend sit beside the chart on wide screens so the card
+            stays short and the map above keeps the screen. */}
+        <div className="flex shrink-0 flex-col justify-center gap-2 lg:w-56">
+          <header>
+            <h2 className="text-sm font-semibold text-navy">
+              PAH Concentration Over Time
+            </h2>
+            <p className="text-xs text-slate">
+              {stationNumber
+                ? `Station ${stationNumber}`
+                : "Athabasca River near Jasper (07AA002)"}
+            </p>
+          </header>
 
-      {error && (
-        <p className="mb-3 text-sm text-warn">{error}</p>
-      )}
-
-      <div className="relative h-65 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 24, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tick={{ fill: colors.slate, fontSize: 12 }}
-            />
-            <YAxis
-              domain={[0, "auto"]}
-              tickFormatter={(value: number) => value.toFixed(3)}
-              tickLine={false}
-              axisLine={false}
-              width={48}
-              tick={{ fill: colors.slate, fontSize: 12 }}
-              label={{
-                value: "PAH (µg/L)",
-                angle: -90,
-                position: "insideLeft",
-                style: { fill: colors.slate, fontSize: 12 },
-              }}
-            />
-            <Tooltip
-              formatter={(value, name) => [
-                Number(value).toFixed(4),
-                name === "actual" ? "Measured" : "Predicted",
-              ]}
-              labelFormatter={(label) => formatDate(String(label))}
-            />
-            <Line
-              type="monotone"
-              dataKey="actual"
-              stroke={colors.blue}
-              strokeWidth={2}
-              dot={{ r: 4, fill: colors.blue }}
-              activeDot={{ r: 6 }}
-              connectNulls
-              name="actual"
-            />
-            <Line
-              type="monotone"
-              dataKey="predicted"
-              stroke={colors.forecast}
-              strokeWidth={2}
-              dot={{ r: 4, fill: colors.forecast }}
-              activeDot={{ r: 6 }}
-              connectNulls
-              name="predicted"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-
-        {/* A soft cover with a spinner while the numbers are on their way. */}
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-lg bg-card/80 text-sm text-slate">
-            <Loader2 className="size-5 animate-spin text-brand-blue" />
-            Loading predictions…
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate lg:flex-col lg:items-start lg:gap-1">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-brand-blue" />
+              Measured (weekly)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-forecast" />
+              Predicted (XGBoost)
+            </span>
           </div>
-        )}
-      </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-5 text-xs text-slate">
-        <span className="flex items-center gap-2">
-          <span className="size-2.5 rounded-full bg-brand-blue" />
-          Measured (weekly reading)
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="size-2.5 rounded-full bg-forecast" />
-          Predicted (XGBoost model)
-        </span>
+          {error && <p className="text-xs text-warn">{error}</p>}
+        </div>
+
+        <div className="relative h-32 min-w-0 flex-1 lg:h-36">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 6, right: 16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+              <XAxis
+                dataKey="date"
+                tickFormatter={formatDate}
+                tickLine={false}
+                axisLine={false}
+                tickMargin={6}
+                tick={{ fill: colors.slate, fontSize: 11 }}
+              />
+              <YAxis
+                domain={[0, "auto"]}
+                tickFormatter={(value: number) => value.toFixed(3)}
+                tickLine={false}
+                axisLine={false}
+                width={44}
+                tick={{ fill: colors.slate, fontSize: 11 }}
+              />
+              <Tooltip
+                formatter={(value, name) => [
+                  Number(value).toFixed(4),
+                  name === "actual" ? "Measured" : "Predicted",
+                ]}
+                labelFormatter={(label) => formatDate(String(label))}
+              />
+              <Line
+                type="monotone"
+                dataKey="actual"
+                stroke={colors.blue}
+                strokeWidth={2}
+                dot={{ r: 3, fill: colors.blue }}
+                activeDot={{ r: 5 }}
+                connectNulls
+                name="actual"
+              />
+              <Line
+                type="monotone"
+                dataKey="predicted"
+                stroke={colors.forecast}
+                strokeWidth={2}
+                dot={{ r: 3, fill: colors.forecast }}
+                activeDot={{ r: 5 }}
+                connectNulls
+                name="predicted"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+
+          {/* A soft cover with a spinner while the numbers are on their way. */}
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-lg bg-card/80 text-xs text-slate">
+              <Loader2 className="size-4 animate-spin text-brand-blue" />
+              Loading predictions…
+            </div>
+          )}
+        </div>
       </div>
     </section>
   )
