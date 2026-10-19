@@ -49,7 +49,7 @@ export function ForecastTable({ forecastDate }: ForecastTableProps) {
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[880px] border-t border-card-edge text-sm">
-          <thead className="bg-[#eff5fb] text-xs text-navy">
+          <thead className="bg-table-head text-xs text-navy">
             <tr>
               {headers.map((header, index) => (
                 <th

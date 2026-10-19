@@ -1,5 +1,6 @@
 "use client"
 
+import { useSyncExternalStore } from "react"
 import {
   CartesianGrid,
   Line,
@@ -12,6 +13,59 @@ import {
 } from "recharts"
 
 import { pahForecast, pahHistory } from "@/lib/dashboard-data"
+
+// Chart colors live in CSS variables, so read them from the document instead of
+// hardcoding hex values. This keeps the chart in step with the light/dark
+// tokens. The fallbacks match the light theme for the server render.
+const CHART_VARS = {
+  slate: { name: "--slate", fallback: "#5f7194" },
+  blue: { name: "--brand-blue", fallback: "#0287f4" },
+  forecast: { name: "--forecast", fallback: "#a55701" },
+  grid: { name: "--card-edge", fallback: "#ebf2f9" },
+} as const
+
+type ChartColors = Record<keyof typeof CHART_VARS, string>
+
+const FALLBACK_COLORS = Object.fromEntries(
+  Object.entries(CHART_VARS).map(([key, { fallback }]) => [key, fallback])
+) as ChartColors
+
+// The snapshot is cached so repeated reads return a stable reference, and it is
+// invalidated whenever the theme class on <html> changes.
+let cachedColors: ChartColors | null = null
+
+function getChartColors(): ChartColors {
+  if (cachedColors) return cachedColors
+
+  const styles = getComputedStyle(document.documentElement)
+  cachedColors = Object.fromEntries(
+    Object.entries(CHART_VARS).map(([key, { name, fallback }]) => [
+      key,
+      styles.getPropertyValue(name).trim() || fallback,
+    ])
+  ) as ChartColors
+  return cachedColors
+}
+
+function subscribeToTheme(callback: () => void) {
+  const observer = new MutationObserver(() => {
+    cachedColors = null
+    callback()
+  })
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  })
+  return () => observer.disconnect()
+}
+
+function useChartColors(): ChartColors {
+  return useSyncExternalStore(
+    subscribeToTheme,
+    getChartColors,
+    () => FALLBACK_COLORS
+  )
+}
 
 // The history and the single forecast point in one list, so a single line
 // continues from the last reading into the prediction.
@@ -40,6 +94,8 @@ const formatDate = (date: string) =>
   }).format(new Date(date))
 
 export function PahChart() {
+  const colors = useChartColors()
+
   return (
     <section className="rounded-xl border border-card-edge bg-card p-5 shadow-sm">
       <header className="mb-4">
@@ -60,14 +116,14 @@ export function PahChart() {
       <div className="h-[260px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 24, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e3edf7" />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
             <XAxis
               dataKey="date"
               tickFormatter={formatDate}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tick={{ fill: "#6e80a2", fontSize: 12 }}
+              tick={{ fill: colors.slate, fontSize: 12 }}
             />
             <YAxis
               domain={[0, 0.3]}
@@ -76,12 +132,12 @@ export function PahChart() {
               tickLine={false}
               axisLine={false}
               width={48}
-              tick={{ fill: "#6e80a2", fontSize: 12 }}
+              tick={{ fill: colors.slate, fontSize: 12 }}
               label={{
                 value: "PAH (µg/L)",
                 angle: -90,
                 position: "insideLeft",
-                style: { fill: "#6e80a2", fontSize: 12 },
+                style: { fill: colors.slate, fontSize: 12 },
               }}
             />
             <Tooltip
@@ -93,15 +149,15 @@ export function PahChart() {
             />
             <ReferenceLine
               x={historyDate}
-              stroke="#94a3b8"
+              stroke={colors.slate}
               strokeDasharray="4 4"
             />
             <Line
               type="monotone"
               dataKey="historical"
-              stroke="#1193fd"
+              stroke={colors.blue}
               strokeWidth={2}
-              dot={{ r: 4, fill: "#1193fd" }}
+              dot={{ r: 4, fill: colors.blue }}
               activeDot={{ r: 6 }}
               connectNulls
               name="historical"
@@ -109,9 +165,9 @@ export function PahChart() {
             <Line
               type="monotone"
               dataKey="forecast"
-              stroke="#fe8908"
+              stroke={colors.forecast}
               strokeWidth={2}
-              dot={{ r: 5, fill: "#fe8908" }}
+              dot={{ r: 5, fill: colors.forecast }}
               connectNulls
               name="forecast"
             />

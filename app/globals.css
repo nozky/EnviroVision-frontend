@@ -81,27 +81,32 @@
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
 
-    /* EnviroVision dashboard palette */
+    /* EnviroVision dashboard palette.
+       Foreground tokens (--slate, --rise, --drop, --warn, --good, --forecast,
+       --brand-blue) are tuned to meet WCAG AA (>= 4.5:1 for text, >= 3:1 for
+       icons/fills) against the surfaces they are used on. */
     --page: #f5f9fe;
     --card-edge: #ebf2f9;
+    --table-head: #eff5fb;
     --navy: #0b1633;
-    --slate: #6e80a2;
-    --brand-blue: #1193fd;
+    --slate: #5f7194;
+    --brand-blue: #0287f4;
     --brand-blue-soft: #edf5fe;
-    --rise: #fd0000;
+    --rise: #d70000;
     --rise-soft: #fee8e7;
-    --drop: #059134;
+    --drop: #047f2e;
     --drop-soft: #e1f9e9;
-    --warn: #fd3131;
+    --warn: #fd2e2e;
     --warn-soft: #feeded;
-    --good: #03c25d;
+    --good: #029c4b;
     --good-soft: #e8faef;
-    --forecast: #fe8908;
+    --forecast: #a55701;
 }
 
 @theme inline {
     --color-page: var(--page);
     --color-card-edge: var(--card-edge);
+    --color-table-head: var(--table-head);
     --color-navy: var(--navy);
     --color-slate: var(--slate);
     --color-brand-blue: var(--brand-blue);
@@ -149,6 +154,32 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    /* EnviroVision dashboard palette (dark).
+       Without these the dashboard keeps its light tokens while --card flips to
+       a dark surface, which made --navy text invisible (1:1). Surfaces are a
+       deliberately light blue-gray rather than near-black; status colors stay
+       bright enough to clear WCAG AA on the lighter cards. */
+    --background: #151d33;
+    --card: #222e46;
+    --card-foreground: #eef3fc;
+    --popover: #222e46;
+    --page: #151d33;
+    --card-edge: #3a4866;
+    --table-head: #2b3850;
+    --navy: #eef3fc;
+    --slate: #a9b8d1;
+    --brand-blue: #5cb2ff;
+    --brand-blue-soft: #1b2f4d;
+    --rise: #ff7b7b;
+    --rise-soft: #4a2029;
+    --drop: #5ce58f;
+    --drop-soft: #1a3d29;
+    --warn: #ff7b7b;
+    --warn-soft: #4a2029;
+    --good: #5ce58f;
+    --good-soft: #1a3d29;
+    --forecast: #ffbe66;
 }
 
 @layer base {

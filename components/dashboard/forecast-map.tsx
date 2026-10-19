@@ -5,6 +5,7 @@ import * as maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 
 import { riskStatus, visibleStations, type Station } from "@/lib/dashboard-data"
+import { riskColors } from "@/lib/dashboard-colors"
 
 // Free topographic basemap from OpenTopoMap. No API key needed.
 const BASEMAP_STYLE: maplibregl.StyleSpecification = {
@@ -24,12 +25,6 @@ const BASEMAP_STYLE: maplibregl.StyleSpecification = {
 // [longitude, latitude].
 const JASPER_CENTER: [number, number] = [-118.08, 52.89]
 const START_ZOOM = 10
-
-const RISK_COLOR: Record<string, string> = {
-  Elevated: "#fd3131",
-  Moderate: "#fe8908",
-  Normal: "#03c25d",
-}
 
 type ForecastMapProps = {
   // Called with the station a marker was clicked on.
@@ -75,7 +70,7 @@ export function ForecastMap({ onSelectStation }: ForecastMapProps) {
             },
             properties: {
               station_number: station.station_number,
-              color: RISK_COLOR[riskStatus(station.predicted_pah_ug_l)],
+              color: riskColors[riskStatus(station.predicted_pah_ug_l)],
             },
           })),
         },

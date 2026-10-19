@@ -27,7 +27,7 @@ This is the working frontend for EnviroVision, built on **Next.js 16 (App Router
 
 > The UI kit is the **Base UI** flavor of shadcn (`@base-ui/react`), not the Radix flavor. When reading shadcn docs, pick the Base UI version.
 
-`maplibre-gl` and `recharts` are installed but not yet used in any component — they are the intended building blocks for the map and charting work.
+`maplibre-gl` powers the station map (`components/dashboard/forecast-map.tsx`) and `recharts` powers the PAH line chart (`components/dashboard/pah-chart.tsx`).
 
 ---
 
@@ -50,15 +50,23 @@ This is the working frontend for EnviroVision, built on **Next.js 16 (App Router
 next-app/
 ├── app/
 │   ├── layout.tsx          # Root layout: fonts, ThemeProvider, globals.css
-│   ├── page.tsx            # Default template page (placeholder)
+│   ├── page.tsx            # Renders <Dashboard />
 │   ├── globals.css         # Tailwind import + design tokens (light/dark)
 │   └── favicon.ico
 ├── components/
+│   ├── dashboard/
+│   │   ├── dashboard.tsx       # Dashboard shell + layout
+│   │   ├── kpi-cards.tsx       # Total / Elevated / Normal summary cards
+│   │   ├── forecast-map.tsx    # MapLibre station map (OpenTopoMap basemap)
+│   │   ├── forecast-table.tsx  # Station reading + forecast table
+│   │   └── pah-chart.tsx       # Recharts PAH line chart
 │   ├── theme-provider.tsx  # next-themes wrapper + "d" dark-mode hotkey
 │   └── ui/
 │       └── button.tsx      # shadcn Button (Base UI + cva variants)
 ├── hooks/                  # (empty — custom hooks go here)
 ├── lib/
+│   ├── dashboard-colors.ts # Fixed map/legend status colors (theme-independent)
+│   ├── dashboard-data.ts   # Sample stations, forecast, and chart data
 │   └── utils.ts            # re-exports `cn` from the `cn` package
 ├── public/                 # (empty — static assets go here)
 ├── AGENTS.md               # Next.js-managed agent instructions
@@ -73,6 +81,55 @@ next-app/
 ├── tsconfig.json
 └── PROJECT.md              # this file
 ```
+
+---
+
+## Dashboard
+
+The app is a single-page environmental monitoring dashboard. `app/page.tsx` renders
+`components/dashboard/dashboard.tsx`, which lays out:
+
+- **KPI cards** (`kpi-cards.tsx`) — total stations, elevated-risk count, normal count,
+  derived from `lib/dashboard-data.ts`.
+- **Station map** (`forecast-map.tsx`) — MapLibre GL with a free OpenTopoMap raster
+  basemap (no API key). Stations are drawn as coloured circle markers keyed by
+  `riskStatus`; clicking one reports the station back to the dashboard, which shows a
+  detail popup. MapLibre's worker URL is set explicitly for the bundled build.
+- **Forecast table** (`forecast-table.tsx`) — per-station historical vs. predicted PAH,
+  the change %, and a colour-coded status badge.
+- **PAH chart** (`pah-chart.tsx`) — Recharts line chart with a reference line marking the
+  last historical reading and a dashed 7-day forecast segment.
+
+Data lives in `lib/dashboard-data.ts` (hand-written sample values). The field names match
+the intended FastAPI endpoints, so the exports can be swapped for API calls later. The
+map and table show `visibleStations` (the first five); KPIs count all `stations`.
+
+---
+
+## Color & contrast
+
+The dashboard palette is defined as CSS variables on `:root` and `.dark` in
+`app/globals.css` and exposed to Tailwind via the `@theme inline` blocks (`--color-*`).
+Both the standard shadcn tokens and the EnviroVision palette (`--page`, `--navy`,
+`--slate`, `--brand-blue`, `--rise`, `--drop`, `--warn`, `--good`, `--forecast`, and the
+`*-soft` variants) are **theme-aware** — `.dark` overrides every EnviroVision token, so
+never hardcode a light value for a surface that flips with the theme.
+
+Conventions:
+
+- **Targets.** Foreground tokens are tuned to meet WCAG AA: **≥ 4.5:1** for text and
+  **≥ 3:1** for icons and graphical fills (markers, chart lines, legend dots). If you add
+  a colour pair, check it against both `--page` and `--card` in light and dark.
+- **Use tokens, not hex.** Prefer `text-slate`, `bg-drop-soft`, `text-forecast`, etc. For
+  canvas/SVG libraries (Recharts, MapLibre) that need concrete values, read the CSS
+  variables at runtime — see `pah-chart.tsx`, which caches the computed values and
+  re-reads them when the `<html>` class changes (via `useSyncExternalStore`).
+- **Dark mode is a light navy, not black.** `.dark` surfaces use `#151d33` (page) and
+  `#222e46` (card) with `#3a4866` edges — a deliberately airy blue-gray. The status and
+  accent tokens are brightened to match so text still clears AA on the lighter cards.
+- **Map stays theme-independent.** The OpenTopoMap basemap is always light, so the map
+  markers and their legend use the fixed colours in `lib/dashboard-colors.ts`
+  (`riskColors`) rather than the theme tokens.
 
 ---
 
@@ -112,9 +169,8 @@ This is Next.js 16, which differs from older versions. **Read the bundled docs a
 
 These are present in `package.json`/`node_modules` but have no code yet — they signal the intended direction:
 
-- `maplibre-gl` → interactive map.
-- `recharts` → charts (works with the shadcn chart component).
 - `hooks/` and `public/` → empty, ready for custom hooks and static assets.
+- `components/ui/button.tsx` → the shadcn Button, not yet wired into the dashboard.
 
 ---
 

@@ -12,6 +12,7 @@ import {
   riskStatus,
   type Station,
 } from "@/lib/dashboard-data"
+import { riskColors } from "@/lib/dashboard-colors"
 
 export function Dashboard() {
   // The date the forecast is for. The picker changes it.
@@ -63,15 +64,24 @@ export function Dashboard() {
               <p className="mb-2 font-medium text-navy">Predicted PAH (µg/L)</p>
               <ul className="space-y-1.5">
                 <li className="flex items-center gap-2">
-                  <span className="size-2.5 rounded-full bg-warn" />
+                  <span
+                    className="size-2.5 rounded-full"
+                    style={{ backgroundColor: riskColors.Elevated }}
+                  />
                   &gt; 0.15 (Elevated)
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="size-2.5 rounded-full bg-forecast" />
+                  <span
+                    className="size-2.5 rounded-full"
+                    style={{ backgroundColor: riskColors.Moderate }}
+                  />
                   0.10 – 0.15 (Moderate)
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="size-2.5 rounded-full bg-good" />
+                  <span
+                    className="size-2.5 rounded-full"
+                    style={{ backgroundColor: riskColors.Normal }}
+                  />
                   &lt; 0.10 (Normal)
                 </li>
               </ul>
