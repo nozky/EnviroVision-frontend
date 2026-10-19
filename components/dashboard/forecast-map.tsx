@@ -72,7 +72,6 @@ function buildCollection(
 
 type ForecastMapProps = {
   stations: Station[]
-  forecastDate: string
   // Tells the dashboard which station the user clicked.
   onSelectStation?: (station: Station) => void
   // The station the dashboard currently has selected, and its data.
@@ -86,7 +85,6 @@ type ForecastMapProps = {
 
 export function ForecastMap({
   stations,
-  forecastDate,
   onSelectStation,
   selectedStation,
   statuses,
@@ -348,9 +346,6 @@ export function ForecastMap({
             </>
           )}
 
-          <p>
-            Forecast date: <span className="font-medium">{forecastDate}</span>
-          </p>
           <p>
             Status:{" "}
             <span className="font-medium" style={{ color: meta.color }}>

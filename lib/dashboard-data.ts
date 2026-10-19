@@ -3,9 +3,6 @@
 // Station records are fetched live from the backend (see lib/api.ts). This file
 // holds the shared types and the few values that still have no API source.
 
-// The date the dashboard opens on.
-export const defaultForecastDate = "2026-10-24"
-
 // The station the dashboard shows first, before the user clicks anything.
 export const defaultStationNumber = "07AA002"
 

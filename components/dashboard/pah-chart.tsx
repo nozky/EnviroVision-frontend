@@ -103,6 +103,8 @@ type PahChartProps = {
   error: string | null
   // The station these numbers belong to, shown in the sub-heading.
   stationNumber: string | null
+  // How many records the dashboard asked the backend for.
+  limit: number
 }
 
 export function PahChart({
@@ -110,6 +112,7 @@ export function PahChart({
   loading,
   error,
   stationNumber,
+  limit,
 }: PahChartProps) {
   const colors = useChartColors()
 
@@ -137,6 +140,8 @@ export function PahChart({
               {stationNumber
                 ? `Station ${stationNumber}`
                 : "Athabasca River near Jasper (07AA002)"}
+              {" · "}
+              last {limit} record{limit === 1 ? "" : "s"}
             </p>
           </header>
 

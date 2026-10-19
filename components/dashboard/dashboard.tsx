@@ -9,7 +9,6 @@ import { PahChart } from "@/components/dashboard/pah-chart"
 import { StationDetail } from "@/components/dashboard/station-detail"
 import { fetchHydrocarbonPrediction, fetchHydrometricStations } from "@/lib/api"
 import {
-  defaultForecastDate,
   defaultPredictionLimit,
   defaultStationNumber,
   getStationStatus,
@@ -19,9 +18,15 @@ import {
   type StationStatus,
 } from "@/lib/dashboard-data"
 
+// How many records we ask the backend for per station. The input edits a
+// draft; the committed number only changes on blur or Enter so we do not
+// re-fetch for every keystroke.
+const MIN_PREDICTION_LIMIT = 1
+const MAX_PREDICTION_LIMIT = 100
+
 export function Dashboard() {
-  // The date the forecast is for. The picker changes it.
-  const [forecastDate, setForecastDate] = useState(defaultForecastDate)
+  const [predictionLimit, setPredictionLimit] = useState(defaultPredictionLimit)
+  const [limitDraft, setLimitDraft] = useState(String(defaultPredictionLimit))
   // The stations fetched from the backend, or null while loading.
   const [stations, setStations] = useState<Station[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -41,24 +46,27 @@ export function Dashboard() {
   }, [predictions])
 
   // Try a single station again after a failed load.
-  const retryStation = useCallback(async (stationNumber: string) => {
-    // Drop the value so the UI shows "loading" for this station again.
-    setPredictions((prev) => {
-      const next = { ...prev }
-      delete next[stationNumber]
-      return next
-    })
+  const retryStation = useCallback(
+    async (stationNumber: string) => {
+      // Drop the value so the UI shows "loading" for this station again.
+      setPredictions((prev) => {
+        const next = { ...prev }
+        delete next[stationNumber]
+        return next
+      })
 
-    try {
-      const data = await fetchHydrocarbonPrediction(
-        stationNumber,
-        defaultPredictionLimit
-      )
-      setPredictions((prev) => ({ ...prev, [stationNumber]: data }))
-    } catch {
-      setPredictions((prev) => ({ ...prev, [stationNumber]: null }))
-    }
-  }, [])
+      try {
+        const data = await fetchHydrocarbonPrediction(
+          stationNumber,
+          predictionLimit
+        )
+        setPredictions((prev) => ({ ...prev, [stationNumber]: data }))
+      } catch {
+        setPredictions((prev) => ({ ...prev, [stationNumber]: null }))
+      }
+    },
+    [predictionLimit]
+  )
 
   // Runs when the user clicks a station marker.
   const selectStation = useCallback(
@@ -94,8 +102,8 @@ export function Dashboard() {
     return () => controller.abort()
   }, [])
 
-  // As soon as the stations arrive, ask for every station's numbers at once so
-  // all the markers can be coloured.
+  // As soon as the stations arrive (or the record limit changes), ask for
+  // every station's numbers at once so all the markers can be coloured.
   useEffect(() => {
     if (!stations) return
     const controller = new AbortController()
@@ -106,7 +114,7 @@ export function Dashboard() {
           try {
             const data = await fetchHydrocarbonPrediction(
               station.station_number,
-              defaultPredictionLimit,
+              predictionLimit,
               controller.signal
             )
             return [station.station_number, data] as const
@@ -123,7 +131,7 @@ export function Dashboard() {
 
     void loadAll()
     return () => controller.abort()
-  }, [stations])
+  }, [stations, predictionLimit])
 
   // Pick a station to show first, once the list is in.
   useEffect(() => {
@@ -159,6 +167,24 @@ export function Dashboard() {
     (status) => status === "normal"
   ).length
 
+  // Apply what's in the box: clamp it, keep the current value when it isn't
+  // a usable number, and only bump state (and so re-fetch) when it changed.
+  const commitLimit = useCallback(() => {
+    const parsed = Number.parseInt(limitDraft, 10)
+    if (!Number.isFinite(parsed)) {
+      setLimitDraft(String(predictionLimit))
+      return
+    }
+    const clamped = Math.min(
+      MAX_PREDICTION_LIMIT,
+      Math.max(MIN_PREDICTION_LIMIT, parsed)
+    )
+    setLimitDraft(String(clamped))
+    setPredictionLimit((current) =>
+      clamped === current ? current : clamped
+    )
+  }, [limitDraft, predictionLimit])
+
   // The numbers for the station currently shown, if we have them yet.
   const selectedPrediction = selectedStation
     ? predictions[selectedStation.station_number]
@@ -187,11 +213,19 @@ export function Dashboard() {
         </div>
 
         <label className="flex flex-col gap-0.5 text-xs font-medium text-slate">
-          Forecast date
+          Records to show
           <input
-            type="date"
-            value={forecastDate}
-            onChange={(event) => setForecastDate(event.target.value)}
+            type="number"
+            min={MIN_PREDICTION_LIMIT}
+            max={MAX_PREDICTION_LIMIT}
+            value={limitDraft}
+            onChange={(event) => setLimitDraft(event.target.value)}
+            onBlur={commitLimit}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur()
+              }
+            }}
             className="rounded-lg border border-card-edge bg-card px-2.5 py-1.5 text-sm text-navy shadow-sm outline-none focus:border-brand-blue"
           />
         </label>
@@ -234,7 +268,6 @@ export function Dashboard() {
               <div className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl">
                 <ForecastMap
                   stations={stations}
-                  forecastDate={forecastDate}
                   onSelectStation={selectStation}
                   selectedStation={selectedStation}
                   statuses={statuses}
@@ -256,7 +289,6 @@ export function Dashboard() {
                 }
                 loading={selectedLoading}
                 error={selectedError}
-                forecastDate={forecastDate}
                 onRetry={() => {
                   if (selectedStation)
                     void retryStation(selectedStation.station_number)
@@ -271,6 +303,7 @@ export function Dashboard() {
               loading={selectedLoading}
               error={selectedError}
               stationNumber={selectedStation?.station_number ?? null}
+              limit={predictionLimit}
             />
           </div>
         </div>

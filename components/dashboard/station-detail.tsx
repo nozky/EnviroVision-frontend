@@ -54,7 +54,6 @@ type StationDetailProps = {
   status: StationStatus
   loading: boolean
   error: string | null
-  forecastDate: string
   onRetry: () => void
 }
 
@@ -64,7 +63,6 @@ export function StationDetail({
   status,
   loading,
   error,
-  forecastDate,
   onRetry,
 }: StationDetailProps) {
   // Nothing chosen yet.
@@ -133,9 +131,11 @@ export function StationDetail({
               </p>
             </div>
             <div className="rounded-lg bg-table-head px-2.5 py-2">
-              <p className="text-[11px] font-medium text-slate">Forecast date</p>
-              <p className="text-xs font-semibold text-navy">
-                {formatDate(forecastDate)}
+              <p className="text-[11px] font-medium text-slate">
+                Records shown
+              </p>
+              <p className="text-xs font-semibold tabular-nums text-navy">
+                {prediction ? prediction.data.length : "—"}
               </p>
             </div>
             <div className="rounded-lg bg-table-head px-2.5 py-2">
