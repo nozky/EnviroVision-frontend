@@ -80,6 +80,41 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* EnviroVision dashboard palette */
+    --page: #f5f9fe;
+    --card-edge: #ebf2f9;
+    --navy: #0b1633;
+    --slate: #6e80a2;
+    --brand-blue: #1193fd;
+    --brand-blue-soft: #edf5fe;
+    --rise: #fd0000;
+    --rise-soft: #fee8e7;
+    --drop: #059134;
+    --drop-soft: #e1f9e9;
+    --warn: #fd3131;
+    --warn-soft: #feeded;
+    --good: #03c25d;
+    --good-soft: #e8faef;
+    --forecast: #fe8908;
+}
+
+@theme inline {
+    --color-page: var(--page);
+    --color-card-edge: var(--card-edge);
+    --color-navy: var(--navy);
+    --color-slate: var(--slate);
+    --color-brand-blue: var(--brand-blue);
+    --color-brand-blue-soft: var(--brand-blue-soft);
+    --color-rise: var(--rise);
+    --color-rise-soft: var(--rise-soft);
+    --color-drop: var(--drop);
+    --color-drop-soft: var(--drop-soft);
+    --color-warn: var(--warn);
+    --color-warn-soft: var(--warn-soft);
+    --color-good: var(--good);
+    --color-good-soft: var(--good-soft);
+    --color-forecast: var(--forecast);
 }
 
 .dark {
