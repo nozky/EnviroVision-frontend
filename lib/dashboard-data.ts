@@ -71,3 +71,53 @@ export type HydrocarbonPrediction = {
   station_number: string
   data: PredictionPoint[]
 }
+
+// How a station looks at a glance. "unknown" means we have not loaded its
+// numbers yet, or the numbers were missing.
+export type StationStatus = "elevated" | "normal" | "unknown"
+
+// The last day in a prediction series, or null when there is nothing to read.
+export function latestPoint(
+  prediction: HydrocarbonPrediction | null | undefined
+): PredictionPoint | null {
+  if (!prediction || prediction.data.length === 0) return null
+  return prediction.data[prediction.data.length - 1]
+}
+
+// Work out a station's status from its numbers. This is a simple rule: when the
+// model predicts more than was actually measured, we call it elevated. Swap
+// this for a real guideline threshold later if one is decided.
+export function getStationStatus(
+  prediction: HydrocarbonPrediction | null | undefined
+): StationStatus {
+  const point = latestPoint(prediction)
+  if (!point || point.actual == null || point.predicted == null) return "unknown"
+  return point.predicted > point.actual ? "elevated" : "normal"
+}
+
+// The label to show, the canvas colour for the map marker, and the CSS classes
+// for on-page badges. The map colours are fixed hex because canvas paint cannot
+// read CSS variables.
+export const STATUS_META: Record<
+  StationStatus,
+  { label: string; color: string; softClass: string; textClass: string }
+> = {
+  elevated: {
+    label: "Elevated",
+    color: "#fd2e2e",
+    softClass: "bg-warn-soft",
+    textClass: "text-warn",
+  },
+  normal: {
+    label: "Normal",
+    color: "#029c4b",
+    softClass: "bg-good-soft",
+    textClass: "text-good",
+  },
+  unknown: {
+    label: "Unknown",
+    color: "#0287f4",
+    softClass: "bg-brand-blue-soft",
+    textClass: "text-brand-blue",
+  },
+}

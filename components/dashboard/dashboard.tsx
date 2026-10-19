@@ -1,19 +1,21 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Leaf } from "lucide-react"
 
 import { ForecastMap } from "@/components/dashboard/forecast-map"
-import { ForecastTable } from "@/components/dashboard/forecast-table"
 import { KpiCards } from "@/components/dashboard/kpi-cards"
 import { PahChart } from "@/components/dashboard/pah-chart"
+import { StationDetail } from "@/components/dashboard/station-detail"
 import { fetchHydrocarbonPrediction, fetchHydrometricStations } from "@/lib/api"
 import {
   defaultForecastDate,
   defaultPredictionLimit,
   defaultStationNumber,
+  getStationStatus,
   type HydrocarbonPrediction,
   type Station,
+  type StationStatus,
 } from "@/lib/dashboard-data"
 
 export function Dashboard() {
@@ -23,46 +25,51 @@ export function Dashboard() {
   const [stations, setStations] = useState<Station[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // The station the user picked (from the map or the list).
+  // The station the user picked on the map.
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
-  // The numbers we got back for that station, or null while we wait.
-  const [prediction, setPrediction] = useState<HydrocarbonPrediction | null>(null)
-  // True while a prediction request is in flight, so we can show a spinner.
-  const [predictionLoading, setPredictionLoading] = useState(false)
-  const [predictionError, setPredictionError] = useState<string | null>(null)
 
-  // Remembers the prediction request so we can cancel it. If the user clicks a
-  // new station before the old reply arrives, we drop the old one.
-  const predictionController = useRef<AbortController | null>(null)
+  // Every station's numbers, kept by station number. A missing entry means we
+  // are still loading it; a null value means the load failed.
+  const [predictions, setPredictions] = useState<
+    Partial<Record<string, HydrocarbonPrediction | null>>
+  >({})
+  // Lets the click handler read the newest numbers without re-creating itself.
+  const predictionsRef = useRef(predictions)
+  useEffect(() => {
+    predictionsRef.current = predictions
+  }, [predictions])
 
-  // Runs when the user clicks a station on the map or in the list.
-  const selectStation = useCallback((station: Station) => {
-    // Cancel any older request so it can't overwrite the newer result.
-    predictionController.current?.abort()
-    const controller = new AbortController()
-    predictionController.current = controller
+  // Try a single station again after a failed load.
+  const retryStation = useCallback(async (stationNumber: string) => {
+    // Drop the value so the UI shows "loading" for this station again.
+    setPredictions((prev) => {
+      const next = { ...prev }
+      delete next[stationNumber]
+      return next
+    })
 
-    setSelectedStation(station)
-    setPredictionLoading(true)
-    setPredictionError(null)
-    // Clear the old numbers so the spinner is the only thing showing.
-    setPrediction(null)
-
-    fetchHydrocarbonPrediction(
-      station.station_number,
-      defaultPredictionLimit,
-      controller.signal
-    )
-      .then(setPrediction)
-      .catch((cause: unknown) => {
-        if (cause instanceof DOMException && cause.name === "AbortError") return
-        setPredictionError("Could not load predictions for this station.")
-      })
-      .finally(() => {
-        // Only stop the spinner if this is still the newest request.
-        if (!controller.signal.aborted) setPredictionLoading(false)
-      })
+    try {
+      const data = await fetchHydrocarbonPrediction(
+        stationNumber,
+        defaultPredictionLimit
+      )
+      setPredictions((prev) => ({ ...prev, [stationNumber]: data }))
+    } catch {
+      setPredictions((prev) => ({ ...prev, [stationNumber]: null }))
+    }
   }, [])
+
+  // Runs when the user clicks a station marker.
+  const selectStation = useCallback(
+    (station: Station) => {
+      setSelectedStation(station)
+      // If this station failed earlier, have another go at loading it.
+      if (predictionsRef.current[station.station_number] === null) {
+        void retryStation(station.station_number)
+      }
+    },
+    [retryStation]
+  )
 
   // Load the station list once on mount.
   useEffect(() => {
@@ -71,24 +78,92 @@ export function Dashboard() {
     fetchHydrometricStations(controller.signal)
       .then((list) => {
         setStations(list)
-        // Show a station right away instead of an empty screen. Prefer the
-        // default station, but fall back to the first one in the list.
+        // Pick a station to show first instead of an empty panel.
         const first =
           list.find(
             (station) => station.station_number === defaultStationNumber
           ) ?? list[0]
-        if (first) selectStation(first)
+        if (first) setSelectedStation(first)
       })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return
         setError("Could not load stations. Please try again later.")
       })
 
-    return () => {
-      controller.abort()
-      predictionController.current?.abort()
+    return () => controller.abort()
+  }, [])
+
+  // As soon as the stations arrive, ask for every station's numbers at once so
+  // all the markers can be coloured.
+  useEffect(() => {
+    if (!stations) return
+    const controller = new AbortController()
+
+    const loadAll = async () => {
+      const pairs = await Promise.all(
+        stations.map(async (station) => {
+          try {
+            const data = await fetchHydrocarbonPrediction(
+              station.station_number,
+              defaultPredictionLimit,
+              controller.signal
+            )
+            return [station.station_number, data] as const
+          } catch {
+            // One station failing should not stop the others.
+            return [station.station_number, null] as const
+          }
+        })
+      )
+
+      if (controller.signal.aborted) return
+      setPredictions((prev) => ({ ...prev, ...Object.fromEntries(pairs) }))
     }
-  }, [selectStation])
+
+    void loadAll()
+    return () => controller.abort()
+  }, [stations])
+
+  // Pick a station to show first, once the list is in.
+  useEffect(() => {
+    if (!stations) return
+    setSelectedStation((current) => {
+      if (current) return current
+      return (
+        stations.find(
+          (station) => station.station_number === defaultStationNumber
+        ) ?? stations[0] ?? current
+      )
+    })
+  }, [stations])
+
+  // The status of every station, worked out from its numbers.
+  const statuses = useMemo(() => {
+    const map: Record<string, StationStatus> = {}
+    for (const station of stations ?? []) {
+      map[station.station_number] = getStationStatus(
+        predictions[station.station_number]
+      )
+    }
+    return map
+  }, [stations, predictions])
+
+  const elevatedCount = Object.values(statuses).filter(
+    (status) => status === "elevated"
+  ).length
+  const normalCount = Object.values(statuses).filter(
+    (status) => status === "normal"
+  ).length
+
+  // The numbers for the station currently shown, if we have them yet.
+  const selectedPrediction = selectedStation
+    ? predictions[selectedStation.station_number]
+    : undefined
+  const selectedLoading = selectedStation !== null && selectedPrediction === undefined
+  const selectedError =
+    selectedPrediction === null
+      ? "Could not load predictions for this station."
+      : null
 
   return (
     <main className="min-h-screen bg-page p-8 text-navy">
@@ -130,7 +205,11 @@ export function Dashboard() {
 
       {stations && (
         <>
-          <KpiCards stations={stations} />
+          <KpiCards
+            stations={stations}
+            elevatedCount={elevatedCount}
+            normalCount={normalCount}
+          />
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
             <section className="flex flex-col rounded-xl border border-card-edge bg-card shadow-sm">
@@ -148,20 +227,23 @@ export function Dashboard() {
                   forecastDate={forecastDate}
                   onSelectStation={selectStation}
                   selectedStation={selectedStation}
-                  prediction={prediction}
-                  predictionLoading={predictionLoading}
-                  predictionError={predictionError}
+                  statuses={statuses}
+                  selectedPrediction={selectedPrediction}
+                  selectedLoading={selectedLoading}
+                  selectedError={selectedError}
                 />
               </div>
             </section>
 
-            <ForecastTable
-              stations={stations}
+            <StationDetail
+              station={selectedStation}
+              prediction={selectedPrediction}
+              loading={selectedLoading}
+              error={selectedError}
               forecastDate={forecastDate}
-              onSelectStation={selectStation}
-              selectedStation={selectedStation}
-              prediction={prediction}
-              predictionLoading={predictionLoading}
+              onRetry={() => {
+                if (selectedStation) void retryStation(selectedStation.station_number)
+              }}
             />
           </div>
         </>
@@ -169,9 +251,9 @@ export function Dashboard() {
 
       <div className="mt-4">
         <PahChart
-          prediction={prediction}
-          loading={predictionLoading}
-          error={predictionError}
+          prediction={selectedPrediction ?? null}
+          loading={selectedLoading}
+          error={selectedError}
           stationNumber={selectedStation?.station_number ?? null}
         />
       </div>

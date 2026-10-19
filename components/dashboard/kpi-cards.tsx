@@ -2,14 +2,18 @@ import { CheckCircle2, MapPin, TriangleAlert } from "lucide-react"
 
 import type { Station } from "@/lib/dashboard-data"
 
-// Shown where a count needs PAH data the API does not provide yet.
-const BLANK = "—"
-
 type KpiCardsProps = {
   stations: Station[]
+  // How many stations the numbers mark as elevated or normal.
+  elevatedCount: number
+  normalCount: number
 }
 
-export function KpiCards({ stations }: KpiCardsProps) {
+export function KpiCards({
+  stations,
+  elevatedCount,
+  normalCount,
+}: KpiCardsProps) {
   const cards = [
     {
       label: "Total Stations",
@@ -19,13 +23,13 @@ export function KpiCards({ stations }: KpiCardsProps) {
     },
     {
       label: "Elevated Risk",
-      value: BLANK,
+      value: elevatedCount,
       icon: TriangleAlert,
       iconClass: "bg-warn-soft text-warn",
     },
     {
       label: "Normal",
-      value: BLANK,
+      value: normalCount,
       icon: CheckCircle2,
       iconClass: "bg-good-soft text-good",
     },

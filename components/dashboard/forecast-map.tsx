@@ -5,7 +5,14 @@ import * as maplibregl from "maplibre-gl"
 import { Loader2 } from "lucide-react"
 import "maplibre-gl/dist/maplibre-gl.css"
 
-import type { HydrocarbonPrediction, Station } from "@/lib/dashboard-data"
+import {
+  getStationStatus,
+  latestPoint,
+  STATUS_META,
+  type HydrocarbonPrediction,
+  type Station,
+  type StationStatus,
+} from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
 
 // Free topographic basemap from OpenTopoMap. No API key needed.
@@ -32,9 +39,37 @@ const CARD_OFFSET = 14
 // Markers above this y-pixel would push the card off the top, so it drops below.
 const FLIP_THRESHOLD = 150
 
-// Every marker uses one colour for now: the API has no PAH value to grade them
-// by. This is canvas paint (not a CSS token), so it must be a fixed hex.
-const MARKER_COLOR = "#0287f4"
+// Build the map points from the stations. Each point carries a `status` so the
+// marker can be coloured, and a `selected` flag so the chosen one stands out.
+function buildPoints(
+  stations: Station[],
+  statuses: Record<string, StationStatus>,
+  selectedNumber: string | null
+) {
+  return stations.map((station) => ({
+    type: "Feature" as const,
+    geometry: {
+      type: "Point" as const,
+      coordinates: [station.longitude, station.latitude] as [number, number],
+    },
+    properties: {
+      station_number: station.station_number,
+      status: statuses[station.station_number] ?? "unknown",
+      selected: station.station_number === selectedNumber,
+    },
+  }))
+}
+
+function buildCollection(
+  stations: Station[],
+  statuses: Record<string, StationStatus>,
+  selectedNumber: string | null
+) {
+  return {
+    type: "FeatureCollection" as const,
+    features: buildPoints(stations, statuses, selectedNumber),
+  }
+}
 
 type ForecastMapProps = {
   stations: Station[]
@@ -43,9 +78,11 @@ type ForecastMapProps = {
   onSelectStation?: (station: Station) => void
   // The station the dashboard currently has selected, and its data.
   selectedStation: Station | null
-  prediction: HydrocarbonPrediction | null
-  predictionLoading: boolean
-  predictionError: string | null
+  // Every station's status, used to colour the markers.
+  statuses: Record<string, StationStatus>
+  selectedPrediction: HydrocarbonPrediction | null | undefined
+  selectedLoading: boolean
+  selectedError: string | null
 }
 
 export function ForecastMap({
@@ -53,15 +90,17 @@ export function ForecastMap({
   forecastDate,
   onSelectStation,
   selectedStation,
-  prediction,
-  predictionLoading,
-  predictionError,
+  statuses,
+  selectedPrediction,
+  selectedLoading,
+  selectedError,
 }: ForecastMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
-  // The click handler reads the latest stations without re-creating the map.
+  // The map is built once, so the handlers and data are read from refs.
   const stationsRef = useRef(stations)
-  // The map is built once, so it keeps the newest click handler in a ref too.
+  const statusesRef = useRef(statuses)
+  const selectedStationRef = useRef(selectedStation)
   const onSelectRef = useRef(onSelectStation)
 
   // The station whose marker was clicked and its on-screen pixel position.
@@ -70,12 +109,16 @@ export function ForecastMap({
   // Same station as `selected`, readable from inside the map's move handler.
   const selectedRef = useRef<Station | null>(null)
 
-  // Keep the ref in step with the prop outside of render.
+  // Keep the refs in step with the props outside of render.
   useEffect(() => {
     stationsRef.current = stations
   }, [stations])
-
-  // Keep the click callback current without rebuilding the map.
+  useEffect(() => {
+    statusesRef.current = statuses
+  }, [statuses])
+  useEffect(() => {
+    selectedStationRef.current = selectedStation
+  }, [selectedStation])
   useEffect(() => {
     onSelectRef.current = onSelectStation
   }, [onSelectStation])
@@ -122,30 +165,33 @@ export function ForecastMap({
 
       map.addSource("stations", {
         type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: current.map((station) => ({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [station.longitude, station.latitude],
-            },
-            properties: {
-              station_number: station.station_number,
-            },
-          })),
-        },
+        data: buildCollection(
+          current,
+          statusesRef.current,
+          selectedStationRef.current?.station_number ?? null
+        ),
       })
 
+      // Marker colour comes from each point's status, and the selected marker
+      // is drawn a little larger. These are canvas paints (not CSS tokens), so
+      // the colours are fixed hex values.
       map.addLayer({
         id: "stations-circle",
         type: "circle",
         source: "stations",
         paint: {
-          "circle-color": MARKER_COLOR,
-          "circle-radius": 9,
+          "circle-color": [
+            "match",
+            ["get", "status"],
+            "elevated",
+            STATUS_META.elevated.color,
+            "normal",
+            STATUS_META.normal.color,
+            STATUS_META.unknown.color,
+          ],
+          "circle-radius": ["case", ["get", "selected"], 13, 9],
           "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2,
+          "circle-stroke-width": ["case", ["get", "selected"], 3, 2],
         },
       })
 
@@ -189,7 +235,7 @@ export function ForecastMap({
         const point = map.project([station.longitude, station.latitude])
         setAnchor({ x: point.x, y: point.y })
 
-        // Let the dashboard know, so it can fetch this station's numbers.
+        // Let the dashboard know which station is now shown.
         onSelectRef.current?.(station)
       })
 
@@ -207,23 +253,46 @@ export function ForecastMap({
     }
   }, [])
 
+  // Recolour the markers whenever the statuses or the selected station change.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const source = map.getSource("stations") as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+    source.setData(
+      buildCollection(
+        stations,
+        statuses,
+        selectedStation?.station_number ?? null
+      )
+    )
+  }, [stations, statuses, selectedStation])
+
   // Drop the card below the marker when it would otherwise run off the top.
   const flipped = anchor ? anchor.y < FLIP_THRESHOLD : false
 
   // Only show the dashboard's data if it belongs to the station in this card.
   const isCurrent = selected?.station_number === selectedStation?.station_number
-  const cardPrediction = isCurrent ? prediction : null
-  const latest = cardPrediction?.data[cardPrediction.data.length - 1]
-  // A simple rule: predicting more than we measured counts as elevated.
-  const change =
-    latest?.actual != null && latest.predicted != null
-      ? latest.predicted - latest.actual
-      : null
-  const status = change == null ? "—" : change > 0 ? "Elevated" : "Normal"
+  const latest = isCurrent ? latestPoint(selectedPrediction) : null
+  const status = isCurrent ? getStationStatus(selectedPrediction) : "unknown"
+  const meta = STATUS_META[status]
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
+
+      {/* What the marker colours mean. */}
+      <div className="absolute bottom-4 left-3 z-10 rounded-lg border border-card-edge bg-card/95 p-2.5 text-xs shadow-md">
+        {(Object.keys(STATUS_META) as StationStatus[]).map((key) => (
+          <div key={key} className="flex items-center gap-2 py-0.5 text-slate">
+            <span
+              className="size-2.5 rounded-full"
+              style={{ backgroundColor: STATUS_META[key].color }}
+            />
+            {STATUS_META[key].label}
+          </div>
+        ))}
+      </div>
 
       {/* Details for the marker that was clicked, anchored to the dot. */}
       {selected && anchor && (
@@ -250,19 +319,21 @@ export function ForecastMap({
           <p className="mt-1 text-slate">Station {selected.station_number}</p>
 
           {/* While waiting, show a spinner; then the station's own numbers. */}
-          {isCurrent && predictionLoading ? (
+          {isCurrent && selectedLoading ? (
             <p className="mt-2 flex items-center gap-2 text-slate">
               <Loader2 className="size-3.5 animate-spin text-brand-blue" />
               Loading predictions…
             </p>
-          ) : isCurrent && predictionError ? (
-            <p className="mt-2 text-warn">{predictionError}</p>
+          ) : isCurrent && selectedError ? (
+            <p className="mt-2 text-warn">{selectedError}</p>
           ) : (
             <>
               <p className="mt-1">
                 Latest measured:{" "}
                 <span className="font-medium">
-                  {latest?.actual != null ? `${latest.actual.toFixed(4)} µg/L` : "—"}
+                  {latest?.actual != null
+                    ? `${latest.actual.toFixed(4)} µg/L`
+                    : "—"}
                 </span>
               </p>
               <p>
@@ -280,7 +351,10 @@ export function ForecastMap({
             Forecast date: <span className="font-medium">{forecastDate}</span>
           </p>
           <p>
-            Status: <span className="font-medium">{status}</span>
+            Status:{" "}
+            <span className="font-medium" style={{ color: meta.color }}>
+              {meta.label}
+            </span>
           </p>
 
           {/* Tail pointing back at the marker. */}
