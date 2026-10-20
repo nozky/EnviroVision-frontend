@@ -36,22 +36,6 @@ export type ApiStation = {
 // measurement/forecast endpoint exists.
 export type Station = ApiStation
 
-// Weekly PAH readings for station 07AA002, used by the bottom chart.
-// TODO: placeholder until a PAH/reading endpoint exists.
-export const pahHistory = [
-  { date: "2026-09-05", pah: 0.1 },
-  { date: "2026-09-12", pah: 0.125 },
-  { date: "2026-09-19", pah: 0.155 },
-  { date: "2026-09-26", pah: 0.135 },
-  { date: "2026-10-03", pah: 0.112 },
-  { date: "2026-10-10", pah: 0.123 },
-  { date: "2026-10-17", pah: 0.132 },
-]
-
-// The single seven-day forecast point that continues the history above.
-// TODO: placeholder until a PAH/forecast endpoint exists.
-export const pahForecast = { date: "2026-10-24", pah: 0.14 }
-
 // One day of a prediction series: the value that was measured and the value
 // the model guessed for that same day. Either can be missing (null), so we
 // check before showing a number.

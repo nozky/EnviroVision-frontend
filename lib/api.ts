@@ -40,5 +40,12 @@ export async function fetchHydrocarbonPrediction(
     throw new Error(`Request failed (${response.status})`)
   }
 
-  return response.json()
+  // Read the body once, log it for debugging, then hand the same value back.
+  const payload: HydrocarbonPrediction = await response.json()
+  console.log(
+    `[predict-hydrocarbon] station=${stationNumber} limit=${limit}`,
+    payload
+  )
+
+  return payload
 }

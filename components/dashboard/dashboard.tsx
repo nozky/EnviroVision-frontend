@@ -262,7 +262,8 @@ export function Dashboard() {
                   Predicted PAH Concentration (µg/L)
                 </h2>
                 <p className="text-xs text-slate">
-                  7-day forecast for Jasper area
+                  Last {predictionLimit} record{predictionLimit === 1 ? "" : "s"}{" "}
+                  per station
                 </p>
               </header>
               <div className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl">

@@ -12,11 +12,7 @@ import {
   YAxis,
 } from "recharts"
 
-import {
-  pahForecast,
-  pahHistory,
-  type HydrocarbonPrediction,
-} from "@/lib/dashboard-data"
+import type { HydrocarbonPrediction } from "@/lib/dashboard-data"
 
 // Chart colors live in CSS variables, so read them from the document instead of
 // hardcoding hex values. This keeps the chart in step with the light/dark
@@ -78,16 +74,6 @@ type ChartPoint = {
   predicted: number | null
 }
 
-// Shown only until the first station loads. The same shape as the API data.
-const fallbackData: ChartPoint[] = [
-  ...pahHistory.map((point) => ({
-    date: point.date,
-    actual: point.pah,
-    predicted: null,
-  })),
-  { date: pahForecast.date, actual: null, predicted: pahForecast.pah },
-]
-
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat("en-CA", {
     month: "short",
@@ -116,15 +102,15 @@ export function PahChart({
 }: PahChartProps) {
   const colors = useChartColors()
 
-  // Turn the API rows into chart rows. Until data arrives, use the fallback.
+  // Turn the API rows into chart rows. The chart only ever draws what the
+  // backend returned — there is no placeholder data.
   const data: ChartPoint[] =
-    prediction && prediction.data.length > 0
-      ? prediction.data.map((point) => ({
-          date: point.sample_datetime,
-          actual: point.actual,
-          predicted: point.predicted,
-        }))
-      : fallbackData
+    prediction?.data.map((point) => ({
+      date: point.sample_datetime,
+      actual: point.actual,
+      predicted: point.predicted,
+    })) ?? []
+  const hasData = data.length > 0
 
   return (
     <section className="rounded-xl border border-card-edge bg-card p-3 shadow-sm">
@@ -139,7 +125,7 @@ export function PahChart({
             <p className="text-xs text-slate">
               {stationNumber
                 ? `Station ${stationNumber}`
-                : "Athabasca River near Jasper (07AA002)"}
+                : "No station selected"}
               {" · "}
               last {limit} record{limit === 1 ? "" : "s"}
             </p>
@@ -160,54 +146,61 @@ export function PahChart({
         </div>
 
         <div className="relative h-32 min-w-0 flex-1 lg:h-36">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 6, right: 16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
-              <XAxis
-                dataKey="date"
-                tickFormatter={formatDate}
-                tickLine={false}
-                axisLine={false}
-                tickMargin={6}
-                tick={{ fill: colors.slate, fontSize: 11 }}
-              />
-              <YAxis
-                domain={[0, "auto"]}
-                tickFormatter={(value: number) => value.toFixed(3)}
-                tickLine={false}
-                axisLine={false}
-                width={44}
-                tick={{ fill: colors.slate, fontSize: 11 }}
-              />
-              <Tooltip
-                formatter={(value, name) => [
-                  Number(value).toFixed(4),
-                  name === "actual" ? "Measured" : "Predicted",
-                ]}
-                labelFormatter={(label) => formatDate(String(label))}
-              />
-              <Line
-                type="monotone"
-                dataKey="actual"
-                stroke={colors.blue}
-                strokeWidth={2}
-                dot={{ r: 3, fill: colors.blue }}
-                activeDot={{ r: 5 }}
-                connectNulls
-                name="actual"
-              />
-              <Line
-                type="monotone"
-                dataKey="predicted"
-                stroke={colors.forecast}
-                strokeWidth={2}
-                dot={{ r: 3, fill: colors.forecast }}
-                activeDot={{ r: 5 }}
-                connectNulls
-                name="predicted"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {hasData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 6, right: 16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatDate}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={6}
+                  tick={{ fill: colors.slate, fontSize: 11 }}
+                />
+                <YAxis
+                  domain={[0, "auto"]}
+                  tickFormatter={(value: number) => value.toFixed(3)}
+                  tickLine={false}
+                  axisLine={false}
+                  width={44}
+                  tick={{ fill: colors.slate, fontSize: 11 }}
+                />
+                <Tooltip
+                  formatter={(value, name) => [
+                    Number(value).toFixed(4),
+                    name === "actual" ? "Measured" : "Predicted",
+                  ]}
+                  labelFormatter={(label) => formatDate(String(label))}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="actual"
+                  stroke={colors.blue}
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: colors.blue }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
+                  name="actual"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="predicted"
+                  stroke={colors.forecast}
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: colors.forecast }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
+                  name="predicted"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            /* Nothing to draw until the backend sends rows for this station. */
+            <div className="flex h-full items-center justify-center rounded-lg bg-table-head text-xs text-slate">
+              No prediction data yet.
+            </div>
+          )}
 
           {/* A soft cover with a spinner while the numbers are on their way. */}
           {loading && (
