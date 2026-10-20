@@ -6,6 +6,7 @@ import { Leaf } from "lucide-react"
 import { ForecastMap } from "@/components/dashboard/forecast-map"
 import { KpiCards } from "@/components/dashboard/kpi-cards"
 import { PahChart } from "@/components/dashboard/pah-chart"
+import { PahForecastChart } from "@/components/dashboard/pah-forecast-chart"
 import { StationDetail } from "@/components/dashboard/station-detail"
 import { fetchHydrocarbonPrediction, fetchHydrometricStations } from "@/lib/api"
 import {
@@ -305,6 +306,15 @@ export function Dashboard() {
               error={selectedError}
               stationNumber={selectedStation?.station_number ?? null}
               limit={predictionLimit}
+            />
+          </div>
+
+          <div className="shrink-0">
+            <PahForecastChart
+              prediction={selectedPrediction ?? null}
+              loading={selectedLoading}
+              error={selectedError}
+              stationNumber={selectedStation?.station_number ?? null}
             />
           </div>
         </div>
