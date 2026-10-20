@@ -64,10 +64,10 @@ export function KpiCards({
       {cards.map((card) => (
         <div
           key={card.label}
-          className="flex items-center gap-3 rounded-lg border border-card-edge bg-card px-3 py-2 shadow-sm"
+          className="flex items-center gap-3 rounded-lg border border-card-edge bg-card px-3 py-1.5 shadow-sm"
         >
           <span
-            className={`flex size-8 shrink-0 items-center justify-center rounded-full ${card.iconClass}`}
+            className={`flex size-7 shrink-0 items-center justify-center rounded-full ${card.iconClass}`}
           >
             <card.icon className="size-4" />
           </span>

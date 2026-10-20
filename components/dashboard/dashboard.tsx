@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Leaf } from "lucide-react"
 
+import {
+  ChartViewToggle,
+  type ChartView,
+} from "@/components/dashboard/chart-view-toggle"
 import { ForecastMap } from "@/components/dashboard/forecast-map"
 import { KpiCards } from "@/components/dashboard/kpi-cards"
 import { PahChart } from "@/components/dashboard/pah-chart"
@@ -28,6 +32,9 @@ const MAX_PREDICTION_LIMIT = 100
 export function Dashboard() {
   const [predictionLimit, setPredictionLimit] = useState(defaultPredictionLimit)
   const [limitDraft, setLimitDraft] = useState(String(defaultPredictionLimit))
+  // Which of the two charts at the bottom is on show. The forecast comes
+  // first; the choice is kept while the user moves between stations.
+  const [chartView, setChartView] = useState<ChartView>("forecast")
   // The stations fetched from the backend, or null while loading.
   const [stations, setStations] = useState<Station[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -142,7 +149,9 @@ export function Dashboard() {
       return (
         stations.find(
           (station) => station.station_number === defaultStationNumber
-        ) ?? stations[0] ?? current
+        ) ??
+        stations[0] ??
+        current
       )
     })
   }, [stations])
@@ -181,20 +190,24 @@ export function Dashboard() {
       Math.max(MIN_PREDICTION_LIMIT, parsed)
     )
     setLimitDraft(String(clamped))
-    setPredictionLimit((current) =>
-      clamped === current ? current : clamped
-    )
+    setPredictionLimit((current) => (clamped === current ? current : clamped))
   }, [limitDraft, predictionLimit])
 
   // The numbers for the station currently shown, if we have them yet.
   const selectedPrediction = selectedStation
     ? predictions[selectedStation.station_number]
     : undefined
-  const selectedLoading = selectedStation !== null && selectedPrediction === undefined
+  const selectedLoading =
+    selectedStation !== null && selectedPrediction === undefined
   const selectedError =
     selectedPrediction === null
       ? "Could not load predictions for this station."
       : null
+
+  // Shared by both charts so the switch between them keeps one control.
+  const chartToggle = (
+    <ChartViewToggle view={chartView} onViewChange={setChartView} />
+  )
 
   return (
     <main className="min-h-screen bg-page p-3 text-navy lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden lg:p-4">
@@ -204,7 +217,7 @@ export function Dashboard() {
             <Leaf className="size-5 text-good" />
           </span>
           <div>
-            <h1 className="text-xl font-bold leading-tight text-navy">
+            <h1 className="text-xl leading-tight font-bold text-navy">
               EnviroVision
             </h1>
             <p className="text-xs text-slate">
@@ -258,13 +271,13 @@ export function Dashboard() {
 
           <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
             <section className="flex min-h-80 flex-col rounded-xl border border-card-edge bg-card shadow-sm lg:min-h-0">
-              <header className="shrink-0 px-4 pt-3 pb-2">
+              <header className="shrink-0 px-3 pt-2.5 pb-1.5">
                 <h2 className="text-sm font-semibold text-navy">
                   Predicted PAH Concentration (µg/L)
                 </h2>
                 <p className="text-xs text-slate">
-                  Last {predictionLimit} record{predictionLimit === 1 ? "" : "s"}{" "}
-                  per station
+                  Last {predictionLimit} record
+                  {predictionLimit === 1 ? "" : "s"} per station
                 </p>
               </header>
               <div className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl">
@@ -299,23 +312,27 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="shrink-0">
-            <PahChart
-              prediction={selectedPrediction ?? null}
-              loading={selectedLoading}
-              error={selectedError}
-              stationNumber={selectedStation?.station_number ?? null}
-              limit={predictionLimit}
-            />
-          </div>
-
-          <div className="shrink-0">
-            <PahForecastChart
-              prediction={selectedPrediction ?? null}
-              loading={selectedLoading}
-              error={selectedError}
-              stationNumber={selectedStation?.station_number ?? null}
-            />
+          {/* One card for both charts; the header toggle picks which one is
+              shown, with the forecast as the default. */}
+          <div className="relative h-[220px] shrink-0">
+            {chartView === "forecast" ? (
+              <PahForecastChart
+                prediction={selectedPrediction ?? null}
+                loading={selectedLoading}
+                error={selectedError}
+                stationNumber={selectedStation?.station_number ?? null}
+                viewToggle={chartToggle}
+              />
+            ) : (
+              <PahChart
+                prediction={selectedPrediction ?? null}
+                loading={selectedLoading}
+                error={selectedError}
+                stationNumber={selectedStation?.station_number ?? null}
+                limit={predictionLimit}
+                viewToggle={chartToggle}
+              />
+            )}
           </div>
         </div>
       )}

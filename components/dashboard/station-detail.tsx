@@ -1,6 +1,7 @@
 import { Loader2, RefreshCw } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { StatusInfoButton } from "@/components/dashboard/status-info"
 import {
   latestPoint,
   STATUS_META,
@@ -92,16 +93,20 @@ export function StationDetail({
             Station {station.station_number}
           </p>
         </div>
-        {/* The same colour the marker uses on the map. */}
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
-            meta.softClass,
-            meta.textClass
-          )}
-        >
-          {meta.label}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* The same colour the marker uses on the map. */}
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-xs font-semibold",
+              meta.softClass,
+              meta.textClass
+            )}
+          >
+            {meta.label}
+          </span>
+          {/* Where these levels come from, with the official source. */}
+          <StatusInfoButton />
+        </div>
       </header>
 
       <div className="p-3">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useSyncExternalStore } from "react"
+import { useSyncExternalStore, type ReactNode } from "react"
 import { Loader2 } from "lucide-react"
 import {
   CartesianGrid,
@@ -256,6 +256,9 @@ type PahForecastChartProps = {
   error: string | null
   // The station these numbers belong to, shown in the sub-heading.
   stationNumber: string | null
+  // The Forecast/Evaluation segmented control, kept in the header so it stays
+  // in the same spot whichever chart the card shows.
+  viewToggle: ReactNode
 }
 
 export function PahForecastChart({
@@ -263,6 +266,7 @@ export function PahForecastChart({
   loading,
   error,
   stationNumber,
+  viewToggle,
 }: PahForecastChartProps) {
   const colors = useChartColors()
   const { rows, latestDate, forecastDate, forecastValue } =
@@ -271,9 +275,25 @@ export function PahForecastChart({
   const hasData = rows.length > 0
   const hasForecast = forecastDate != null && forecastValue != null
 
+  // The one line above the disclaimer: an error wins, otherwise the forecast
+  // read-out, otherwise why there is no forecast.
+  const readout = error ? (
+    <span className="text-warn">{error}</span>
+  ) : hasForecast ? (
+    <span>
+      Forecast target {formatFullDate(forecastDate)} ·{" "}
+      <span className="tabular-nums">{forecastValue.toFixed(4)} µg/L</span>{" "}
+      predicted by XGBoost.
+    </span>
+  ) : hasData ? (
+    <span>
+      No 7-day forecast for this station: the sample schedule is not weekly.
+    </span>
+  ) : null
+
   return (
-    <section className="rounded-xl border border-card-edge bg-card p-3 shadow-sm">
-      <header className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+    <section className="absolute inset-0 w-full rounded-xl border border-card-edge bg-card p-2.5 shadow-sm">
+      <header className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div>
           <h2 className="text-sm font-semibold text-navy">
             PAH Concentration Forecast
@@ -282,12 +302,16 @@ export function PahForecastChart({
             Historical weekly measurements and 7-day-ahead forecast
           </p>
         </div>
-        <p className="text-xs text-slate">
-          {stationNumber ? `Station ${stationNumber}` : "No station selected"}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-slate">
+            {stationNumber ? `Station ${stationNumber}` : "No station selected"}
+          </p>
+          {viewToggle}
+        </div>
       </header>
 
-      <div className="relative h-64 w-full">
+      {/* Kept short so the map and station panel above keep the screen. */}
+      <div className="relative h-44 w-full lg:h-48">
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows} margin={{ top: 6, right: 20, bottom: 4 }}>
@@ -401,28 +425,16 @@ export function PahForecastChart({
         )}
       </div>
 
-      <footer className="mt-1.5 flex flex-col gap-0.5">
-        {error && <p className="text-xs text-warn">{error}</p>}
-        {hasData && !hasForecast && !error && (
-          <p className="text-xs text-slate">
-            No 7-day forecast for this station: the sample schedule is not
-            weekly.
-          </p>
-        )}
-        {hasForecast && (
-          <p className="text-xs text-slate">
-            Forecast target {formatFullDate(forecastDate)} ·{" "}
-            <span className="tabular-nums">
-              {forecastValue.toFixed(4)} µg/L
-            </span>{" "}
-            predicted by XGBoost.
-          </p>
-        )}
+      {/* One compact line for the read-out and the data note, so the card
+          stays short and the map above keeps the screen. */}
+      <footer className="mt-1.5 text-[11px] leading-snug text-slate">
+        {readout}
+        {readout && " · "}
         {/* These readings come from the seeded simulation table, so say so. */}
-        <p className="text-[11px] text-slate">
-          Measurements are synthetic demonstration data (
-          <code>hydrocarbon_measurements</code>), not observed samples.
-        </p>
+        <span className="text-slate/80">
+          Synthetic demonstration data (<code>hydrocarbon_measurements</code>),
+          not observed samples.
+        </span>
       </footer>
     </section>
   )
