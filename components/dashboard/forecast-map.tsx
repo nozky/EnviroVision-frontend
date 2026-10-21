@@ -53,6 +53,8 @@ function buildPoints(
     },
     properties: {
       station_number: station.station_number,
+      // Shown on the map next to the marker, straight from the station record.
+      station_name: station.station_name,
       status: statuses[station.station_number] ?? "normal",
       selected: station.station_number === selectedNumber,
     },
@@ -192,16 +194,43 @@ export function ForecastMap({
         },
       })
 
-      // Station numbers sit next to each marker.
+      // Station numbers sit under each marker. They are the fallback read, so
+      // they are small and muted and drop out before the names do.
       map.addLayer({
         id: "stations-label",
         type: "symbol",
         source: "stations",
         layout: {
           "text-field": ["get", "station_number"],
-          "text-size": 12,
-          "text-offset": [0, 1.6],
+          "text-size": 10,
+          "text-offset": [0, 1.9],
           "text-anchor": "top",
+          // Lets MapLibre drop a number that would overlap rather than pile up.
+          "text-optional": true,
+        },
+        paint: {
+          "text-color": "#64748b",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 2,
+        },
+      })
+
+      // Station names sit to the right of each marker. This layer is added last
+      // on purpose: MapLibre places the last layer first, so the names win the
+      // collision fight and the numbers drop out first when it gets crowded.
+      map.addLayer({
+        id: "stations-name",
+        type: "symbol",
+        source: "stations",
+        layout: {
+          "text-field": ["get", "station_name"],
+          "text-size": 12,
+          "text-offset": [1.4, 0],
+          "text-anchor": "left",
+          // Wrap the long names instead of letting them run off the edge.
+          "text-max-width": 12,
+          // Hide a name that would collide; zooming in brings the rest back.
+          "text-optional": true,
         },
         paint: {
           "text-color": "#0b1633",
