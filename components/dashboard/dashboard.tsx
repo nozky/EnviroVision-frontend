@@ -210,7 +210,7 @@ export function Dashboard() {
   )
 
   return (
-    <main className="min-h-screen bg-page p-3 text-navy lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden lg:p-4">
+    <main className="lmin-h-screen overflow-auto bg-page p-3 pb-1 text-navy lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden lg:p-4">
       <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="flex size-9 items-center justify-center rounded-full bg-good-soft">
@@ -293,7 +293,7 @@ export function Dashboard() {
               </div>
             </section>
 
-            <div className="lg:min-h-0 lg:overflow-y-auto">
+            <div className="h-full lg:min-h-0 lg:overflow-y-auto">
               <StationDetail
                 station={selectedStation}
                 prediction={selectedPrediction}
@@ -314,7 +314,7 @@ export function Dashboard() {
 
           {/* One card for both charts; the header toggle picks which one is
               shown, with the forecast as the default. */}
-          <div className="relative h-[220px] shrink-0">
+          <div className="relative h-55 shrink-0">
             {chartView === "forecast" ? (
               <PahForecastChart
                 prediction={selectedPrediction ?? null}

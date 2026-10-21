@@ -69,7 +69,7 @@ export function StationDetail({
   // Nothing chosen yet.
   if (!station) {
     return (
-      <section className="flex min-h-40 items-center justify-center rounded-xl border border-card-edge bg-card p-6 text-center text-sm text-slate shadow-sm">
+      <section className="flex h-full items-center justify-center rounded-xl border border-card-edge bg-card p-6 text-center text-sm text-slate shadow-sm">
         Select a station on the map to see its details.
       </section>
     )
@@ -83,7 +83,7 @@ export function StationDetail({
       : null
 
   return (
-    <section className="rounded-xl border border-card-edge bg-card shadow-sm">
+    <section className="rounded-xl border border-card-edge bg-card shadow-sm h-full">
       <header className="flex items-start justify-between gap-3 border-b border-card-edge px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold text-navy">
@@ -130,7 +130,9 @@ export function StationDetail({
         ) : (
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-table-head px-2.5 py-2">
-              <p className="text-[11px] font-medium text-slate">Latest sample</p>
+              <p className="text-[11px] font-medium text-slate">
+                Latest sample
+              </p>
               <p className="text-xs font-semibold text-navy">
                 {latest ? formatDate(latest.sample_datetime) : "—"}
               </p>
@@ -139,7 +141,7 @@ export function StationDetail({
               <p className="text-[11px] font-medium text-slate">
                 Records shown
               </p>
-              <p className="text-xs font-semibold tabular-nums text-navy">
+              <p className="text-xs font-semibold text-navy tabular-nums">
                 {prediction ? prediction.data.length : "—"}
               </p>
             </div>
@@ -147,7 +149,7 @@ export function StationDetail({
               <p className="text-[11px] font-medium text-slate">
                 Measured (µg/L)
               </p>
-              <p className="text-xs font-semibold tabular-nums text-navy">
+              <p className="text-xs font-semibold text-navy tabular-nums">
                 {formatValue(latest?.actual)}
               </p>
             </div>
@@ -155,7 +157,7 @@ export function StationDetail({
               <p className="text-[11px] font-medium text-slate">
                 Predicted (µg/L)
               </p>
-              <p className="text-xs font-semibold tabular-nums text-navy">
+              <p className="text-xs font-semibold text-navy tabular-nums">
                 {formatValue(latest?.predicted)}
               </p>
             </div>
