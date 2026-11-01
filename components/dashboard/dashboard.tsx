@@ -191,6 +191,15 @@ export function Dashboard() {
     return map
   }, [stations, predictions])
 
+  // Station list for the drawer's dropdown, sorted by name.
+  const stationOptions = useMemo(
+    () =>
+      [...(stations ?? [])].sort((a, b) =>
+        a.station_name.localeCompare(b.station_name)
+      ),
+    [stations]
+  )
+
   const highCount = Object.values(statuses).filter(
     (status) => status === "high"
   ).length
@@ -333,6 +342,35 @@ export function Dashboard() {
               >
                 <PanelRight className="size-4" />
               </button>
+            </div>
+            <div className="border-b border-card-edge px-3 py-2">
+              <label className="flex flex-col gap-0.5 text-xs font-medium text-slate">
+                Choose station
+                <select
+                  value={selectedStation?.station_number ?? ""}
+                  onChange={(event) => {
+                    const station = stationOptions.find(
+                      (item) => item.station_number === event.target.value
+                    )
+                    if (station) selectStation(station)
+                  }}
+                  className="w-full rounded-lg border border-card-edge bg-card px-2 py-1.5 text-sm text-navy shadow-sm outline-none focus:border-brand-blue"
+                >
+                  {!selectedStation && (
+                    <option value="" disabled>
+                      Select a station
+                    </option>
+                  )}
+                  {stationOptions.map((station) => (
+                    <option
+                      key={station.station_number}
+                      value={station.station_number}
+                    >
+                      {station.station_name} ({station.station_number})
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <StationDetail

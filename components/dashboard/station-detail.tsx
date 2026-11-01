@@ -8,8 +8,14 @@ import {
   type HydrocarbonPrediction,
   type Station,
   type StationStatus,
+  type WatershedClass,
   type WatershedResponse,
 } from "@/lib/dashboard-data"
+import {
+  bandPercents,
+  WATERSHED_BANDS,
+  type WatershedBand,
+} from "@/lib/watershed-bands"
 import { cn } from "@/lib/utils"
 
 function formatDate(date: string) {
@@ -48,6 +54,33 @@ function DetailRow({
   )
 }
 
+// Runoff bands with the share of the watershed in each.
+function WatershedLegend({ classes }: { classes: WatershedClass[] }) {
+  const percents = bandPercents(classes)
+  const bands = Object.keys(WATERSHED_BANDS) as WatershedBand[]
+
+  return (
+    <ul className="mt-2 space-y-1.5">
+      {bands.map((band) => {
+        const meta = WATERSHED_BANDS[band]
+        return (
+          <li key={band} className="flex items-center gap-2 text-xs">
+            <span
+              className="size-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: meta.color }}
+            />
+            <span className="font-medium text-navy">{meta.label}</span>
+            <span className="truncate text-slate">{meta.range}</span>
+            <span className="ml-auto shrink-0 tabular-nums text-navy">
+              {percents[band].toFixed(1)}%
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 type StationDetailProps = {
   // The station the user picked, or null before anything is chosen.
   station: Station | null
@@ -78,7 +111,7 @@ export function StationDetail({
   if (!station) {
     return (
       <section className="flex min-h-40 items-center justify-center rounded-xl border border-card-edge bg-card p-6 text-center text-sm text-slate shadow-sm">
-        Select a station on the map to see its details.
+        Select a station on the map or from the list to see its details.
       </section>
     )
   }
@@ -276,6 +309,10 @@ export function StationDetail({
               </>
             )}
           </dl>
+        )}
+
+        {watershed && !watershed.no_rain && watershed.stats && (
+          <WatershedLegend classes={watershed.stats.classes} />
         )}
       </div>
     </section>

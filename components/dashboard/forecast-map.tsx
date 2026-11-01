@@ -8,12 +8,22 @@ import "maplibre-gl/dist/maplibre-gl.css"
 import {
   latestPoint,
   STATUS_META,
+  STATUS_THRESHOLDS,
   type HydrocarbonPrediction,
   type Station,
   type StationStatus,
   type WatershedResponse,
 } from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
+
+import {
+  recolorImpactImage,
+  WATERSHED_BANDS,
+} from "@/lib/watershed-bands"
+
+import { StatusInfoButton } from "@/components/dashboard/status-info"
+
+import { MapCompass } from "./map-compass"
 
 // Free topographic basemap from OpenTopoMap. No API key needed.
 const BASEMAP_STYLE: maplibregl.StyleSpecification = {
@@ -33,6 +43,13 @@ const BASEMAP_STYLE: maplibregl.StyleSpecification = {
 // MapLibre expects [longitude, latitude].
 const DEFAULT_CENTER: [number, number] = [-118.08, 52.89]
 const DEFAULT_ZOOM = 8
+
+// The value range each status covers, shown beside its colour in the legend.
+const STATUS_RANGES: Record<StationStatus, string> = {
+  high: `> ${STATUS_THRESHOLDS.guideline.toFixed(3)} µg/L`,
+  medium: `${STATUS_THRESHOLDS.medium.toFixed(3)} – ${STATUS_THRESHOLDS.guideline.toFixed(3)} µg/L`,
+  normal: `≤ ${STATUS_THRESHOLDS.medium.toFixed(3)} µg/L`,
+}
 
 // How far above/below the marker the card sits, leaving room for its tail.
 const CARD_OFFSET = 14
@@ -113,6 +130,8 @@ export function ForecastMap({
   const selectedRef = useRef<Station | null>(null)
   // We cannot add layers until the initial style has loaded.
   const [mapLoaded, setMapLoaded] = useState(false)
+  // The map's rotation in degrees, used to turn the compass rose.
+  const [bearing, setBearing] = useState(0)
 
   // Keep the refs in step with the props outside of render.
   useEffect(() => {
@@ -155,8 +174,11 @@ export function ForecastMap({
     const resize = () => map.resize()
     window.addEventListener("resize", resize)
 
-    // Zoom in/out buttons plus a compass, matching the screenshot.
-    map.addControl(new maplibregl.NavigationControl(), "top-right")
+    // Zoom in/out buttons. The labelled compass is drawn separately.
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      "top-right"
+    )
     // Distance scale in the bottom-right.
     map.addControl(new maplibregl.ScaleControl(), "bottom-right")
 
@@ -168,6 +190,9 @@ export function ForecastMap({
       setAnchor({ x: point.x, y: point.y })
     }
     map.on("move", repositionCard)
+
+    // Turn the compass rose whenever the map is rotated.
+    map.on("rotate", () => setBearing(map.getBearing()))
 
     map.on("load", () => {
       setMapLoaded(true)
@@ -313,6 +338,8 @@ export function ForecastMap({
     const map = mapRef.current
     if (!map || !mapLoaded) return
 
+    let cancelled = false
+
     const removeWatershedLayers = () => {
       for (const id of [
         "watershed-fill",
@@ -330,7 +357,7 @@ export function ForecastMap({
 
     if (!watershed) return
 
-    // Boundary outline + subtle fill.
+    // Boundary outline + subtle fill. The fill is the normal band's color.
     map.addSource("watershed-boundary", {
       type: "geojson",
       data: {
@@ -345,8 +372,8 @@ export function ForecastMap({
       type: "fill",
       source: "watershed-boundary",
       paint: {
-        "fill-color": "#0287f4",
-        "fill-opacity": 0.3,
+        "fill-color": WATERSHED_BANDS.normal.color,
+        "fill-opacity": 0.25,
       },
     })
 
@@ -361,26 +388,33 @@ export function ForecastMap({
       },
     })
 
-    // Impact raster, if the backend produced one for this hour.
+    // Impact raster, if the backend produced one for this hour. It is repainted
+    // in the band colors first, so the map matches the station panel's legend.
     if (watershed.image) {
-      map.addSource("watershed-image", {
-        type: "image",
-        url: watershed.image.data_uri,
-        coordinates: watershed.image.coordinates,
-      })
+      const { coordinates, data_uri } = watershed.image
+      void recolorImpactImage(data_uri).then((url) => {
+        if (cancelled) return
 
-      map.addLayer({
-        id: "watershed-image",
-        type: "raster",
-        source: "watershed-image",
-        paint: {
-          "raster-opacity": 0.65,
-          "raster-fade-duration": 0,
-        },
+        map.addSource("watershed-image", {
+          type: "image",
+          url,
+          coordinates,
+        })
+
+        map.addLayer({
+          id: "watershed-image",
+          type: "raster",
+          source: "watershed-image",
+          paint: {
+            "raster-opacity": 0.65,
+            "raster-fade-duration": 0,
+          },
+        })
       })
     }
 
     return () => {
+      cancelled = true
       removeWatershedLayers()
     }
   }, [watershed, mapLoaded])
@@ -400,15 +434,22 @@ export function ForecastMap({
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
 
+      <MapCompass bearing={bearing} />
+
       {/* What the marker colours mean. */}
       <div className="absolute bottom-4 left-3 z-10 rounded-lg border border-card-edge bg-card/95 p-2.5 text-xs shadow-md">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="font-semibold text-navy">Predicted PAH (latest value)</p>
+          <StatusInfoButton />
+        </div>
         {(Object.keys(STATUS_META) as StationStatus[]).map((key) => (
           <div key={key} className="flex items-center gap-2 py-0.5 text-slate">
             <span
               className="size-2.5 rounded-full"
               style={{ backgroundColor: STATUS_META[key].color }}
             />
-            {STATUS_META[key].label}
+            <span className="font-medium">{STATUS_META[key].label}</span>
+            <span>{STATUS_RANGES[key]}</span>
           </div>
         ))}
       </div>
