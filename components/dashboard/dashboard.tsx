@@ -398,7 +398,7 @@ export function Dashboard() {
           {!detailOpen && (
             <button
               onClick={() => setDetailOpen(true)}
-              className="absolute top-[5.5rem] right-4 z-20 flex items-center gap-1.5 rounded-l-xl border border-r-0 border-card-edge bg-card/95 px-3 py-2 text-xs font-semibold text-navy shadow-md backdrop-blur-sm"
+              className="absolute top-22 right-4 z-20 flex items-center gap-1.5 rounded-l-xl border border-r-0 border-card-edge bg-card/95 px-3 py-2 text-xs font-semibold text-navy shadow-md backdrop-blur-sm"
               aria-label="Open station detail"
             >
               <PanelRight className="size-4" />
@@ -412,7 +412,7 @@ export function Dashboard() {
               chartOpen
                 ? "bottom-0 translate-y-0"
                 : "bottom-0 translate-y-[calc(100%-2.25rem)]"
-            } ${detailOpen ? "lg:right-[calc(min(360px,80vw)_+_2rem)]" : "lg:right-4"}`}
+            } ${detailOpen ? "lg:right-[calc(min(360px,80vw)+2rem)]" : "lg:right-4"}`}
           >
             <button
               onClick={() => setChartOpen((open) => !open)}
@@ -426,7 +426,7 @@ export function Dashboard() {
                 <ChevronUp className="size-4 text-slate" />
               )}
             </button>
-            <div className="relative h-[220px] w-full px-3 pb-3">
+            <div className="relative h-55 w-full px-3 pb-3">
               {chartView === "forecast" ? (
                 <PahForecastChart
                   prediction={selectedPrediction ?? null}
