@@ -19,14 +19,17 @@ import {
 import { cn } from "@/lib/utils"
 
 function formatDate(date: string) {
-  // "2026-10-17" -> "Oct 17, 2026". Formatting in UTC keeps the day from
-  // slipping back one in Alberta's time zone.
+  // "2026-10-17" -> "Oct 17, 2026". A bare date is read as a local calendar
+  // day so it doesn't slip back one day in zones west of UTC.
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  const value = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(date)
   return new Intl.DateTimeFormat("en-CA", {
     month: "short",
     day: "numeric",
     year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(date))
+  }).format(value)
 }
 
 // A readout is blank when its value is missing.
@@ -38,16 +41,16 @@ function formatArea(value: number | null | undefined) {
   return value == null ? "—" : `${value.toLocaleString("en-CA")} km²`
 }
 
-// "2026-11-06T16:00:00+00:00" -> "Nov 6, 16:00 UTC". Forecast hours are UTC.
+// "2026-11-06T16:00:00+00:00" -> "Nov 6, 16:00 PST" in the browser's zone.
 function formatHour(time: string) {
-  return `${new Intl.DateTimeFormat("en-CA", {
+  return new Intl.DateTimeFormat("en-CA", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-    timeZone: "UTC",
-  }).format(new Date(time))} UTC`
+    timeZoneName: "short",
+  }).format(new Date(time))
 }
 
 // One line in the "About this station" list.
