@@ -54,18 +54,26 @@ export async function fetchHydrocarbonPrediction(
   return payload
 }
 
-// Fetch the upstream watershed and runoff impact data for a station.
+// The runoff coefficient the forecast is run with.
+export const BASELINE_RUNOFF_COEFFICIENT = 0.6
+
+// Fetch the upstream watershed and runoff impact data for a station. A
+// scenario coefficient runs a what-if against the forecast's fixed cut-offs.
 export async function fetchWatershed(
   stationNumber: string,
   options: {
     runoffCoefficient?: number
+    scenarioCoefficient?: number
     hour?: string
     signal?: AbortSignal
   } = {}
 ): Promise<WatershedResponse> {
   const path = `/api/v1/get-hydrometric-stations/${encodeURIComponent(stationNumber)}/watershed`
   const params = new URLSearchParams()
-  if (options.runoffCoefficient != null) {
+  if (options.scenarioCoefficient != null) {
+    params.set("runoff_coefficient", String(options.scenarioCoefficient))
+    params.set("reference_coefficient", String(BASELINE_RUNOFF_COEFFICIENT))
+  } else if (options.runoffCoefficient != null) {
     params.set("runoff_coefficient", String(options.runoffCoefficient))
   }
   if (options.hour != null) {

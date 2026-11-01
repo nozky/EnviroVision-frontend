@@ -103,6 +103,8 @@ type ForecastMapProps = {
   selectedError: string | null
   // Optional upstream watershed + impact raster to draw over the basemap.
   watershed: WatershedResponse | null | undefined
+  // The runoff coefficient of an active what-if, or null for the forecast.
+  runoffScenario: number | null
 }
 
 export function ForecastMap({
@@ -114,7 +116,9 @@ export function ForecastMap({
   selectedLoading,
   selectedError,
   watershed,
+  runoffScenario,
 }: ForecastMapProps) {
+  const isScenario = runoffScenario !== null
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   // The map is built once, so the handlers and data are read from refs.
@@ -385,6 +389,7 @@ export function ForecastMap({
         "line-color": "#0287f4",
         "line-width": 2.5,
         "line-opacity": 1,
+        "line-dasharray": isScenario ? [2, 2] : [1],
       },
     })
 
@@ -417,7 +422,7 @@ export function ForecastMap({
       cancelled = true
       removeWatershedLayers()
     }
-  }, [watershed, mapLoaded])
+  }, [watershed, mapLoaded, isScenario])
 
   // Drop the card below the marker when it would otherwise run off the top.
   const flipped = anchor ? anchor.y < FLIP_THRESHOLD : false
@@ -435,6 +440,12 @@ export function ForecastMap({
       <div ref={containerRef} className="h-full w-full" />
 
       <MapCompass bearing={bearing} />
+
+      {isScenario && (
+        <div className="absolute top-4 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-warn bg-warn-soft px-3 py-1.5 text-xs font-semibold text-warn shadow-md">
+          What-if runoff scenario. Not a forecast.
+        </div>
+      )}
 
       {/* What the marker colours mean. */}
       <div className="absolute bottom-4 left-3 z-10 rounded-lg border border-card-edge bg-card/95 p-2.5 text-xs shadow-md">

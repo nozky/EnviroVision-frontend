@@ -65,6 +65,14 @@ export function Dashboard() {
   // The forecast hour the user picked for the watershed. Null means the
   // backend's default (the wettest hour). Only the watershed uses this.
   const [watershedHour, setWatershedHour] = useState<string | null>(null)
+  // The runoff coefficient of an active what-if, or null for the forecast.
+  const [runoffScenario, setRunoffScenario] = useState<number | null>(null)
+
+  // Changing the forecast hour leaves the what-if, so the hour is shown as forecast.
+  const changeWatershedHour = useCallback((hour: string | null) => {
+    setWatershedHour(hour)
+    setRunoffScenario(null)
+  }, [])
 
   // Try a single station again after a failed load.
   const retryStation = useCallback(
@@ -95,6 +103,8 @@ export function Dashboard() {
       setSelectedStation(station)
       // Each station has its own forecast hours, so start again at the default.
       setWatershedHour(null)
+      // A what-if belongs to the station it was run for.
+      setRunoffScenario(null)
       // If this station failed earlier, have another go at loading it.
       if (predictionsRef.current[station.station_number] === null) {
         void retryStation(station.station_number)
@@ -177,6 +187,7 @@ export function Dashboard() {
       try {
         const data = await fetchWatershed(selectedStation.station_number, {
           hour: watershedHour ?? undefined,
+          scenarioCoefficient: runoffScenario ?? undefined,
           signal: controller.signal,
         })
         if (controller.signal.aborted) return
@@ -191,7 +202,7 @@ export function Dashboard() {
 
     void load()
     return () => controller.abort()
-  }, [selectedStation, watershedHour])
+  }, [selectedStation, watershedHour, runoffScenario])
 
   // The status of every station, read against the fixed guideline bands.
   const statuses = useMemo(() => {
@@ -337,6 +348,7 @@ export function Dashboard() {
               selectedLoading={selectedLoading}
               selectedError={selectedError}
               watershed={watershed}
+              runoffScenario={runoffScenario}
             />
           </div>
 
@@ -404,7 +416,9 @@ export function Dashboard() {
                 watershedLoading={watershedLoading}
                 watershedError={watershedError}
                 watershedHour={watershedHour}
-                onWatershedHourChange={setWatershedHour}
+                onWatershedHourChange={changeWatershedHour}
+                runoffScenario={runoffScenario}
+                onRunoffScenarioChange={setRunoffScenario}
               />
             </div>
           </aside>

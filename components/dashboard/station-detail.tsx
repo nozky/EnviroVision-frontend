@@ -1,7 +1,9 @@
 import { Loader2, RefreshCw } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { RunoffInfoButton } from "@/components/dashboard/runoff-info"
 import { StatusInfoButton } from "@/components/dashboard/status-info"
+import { BASELINE_RUNOFF_COEFFICIENT } from "@/lib/api"
 import {
   latestPoint,
   STATUS_META,
@@ -69,6 +71,17 @@ function DetailRow({
   )
 }
 
+// What-if runoff coefficients. 1.0 is the backend's maximum.
+const RUNOFF_SCENARIOS = [0.75, 0.9, 1.0]
+
+// The change from the forecast's coefficient, e.g. 0.9 -> "+50%".
+function scenarioLabel(coefficient: number) {
+  const percent = Math.round(
+    (coefficient / BASELINE_RUNOFF_COEFFICIENT - 1) * 100
+  )
+  return `${percent >= 0 ? "+" : ""}${percent}%`
+}
+
 // Runoff bands with the share of the watershed in each.
 function WatershedLegend({ classes }: { classes: WatershedClass[] }) {
   const percents = bandPercents(classes)
@@ -112,6 +125,9 @@ type StationDetailProps = {
   // The forecast hour chosen for the watershed, or null for the wettest hour.
   watershedHour: string | null
   onWatershedHourChange: (hour: string | null) => void
+  // The runoff coefficient of an active what-if, or null for the forecast.
+  runoffScenario: number | null
+  onRunoffScenarioChange: (coefficient: number | null) => void
 }
 
 export function StationDetail({
@@ -126,6 +142,8 @@ export function StationDetail({
   watershedError,
   watershedHour,
   onWatershedHourChange,
+  runoffScenario,
+  onRunoffScenarioChange,
 }: StationDetailProps) {
   // Nothing chosen yet.
   if (!station) {
@@ -308,6 +326,51 @@ export function StationDetail({
             </span>
           </label>
         )}
+        {watershed && !watershedError && (
+          <div className="mt-2 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-medium text-slate">Runoff what-if</p>
+              <RunoffInfoButton />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {RUNOFF_SCENARIOS.map((coefficient) => {
+                const active = runoffScenario === coefficient
+                return (
+                  <button
+                    key={coefficient}
+                    onClick={() =>
+                      onRunoffScenarioChange(active ? null : coefficient)
+                    }
+                    aria-pressed={active}
+                    className={cn(
+                      "rounded-md px-2 py-1 text-xs font-medium shadow-sm",
+                      active
+                        ? "bg-brand-blue text-white"
+                        : "bg-card text-navy hover:bg-table-head"
+                    )}
+                  >
+                    {scenarioLabel(coefficient)} runoff
+                  </button>
+                )
+              })}
+            </div>
+            {runoffScenario !== null && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-warn-soft px-2.5 py-1.5 text-xs text-warn">
+                <span>
+                  What-if: {scenarioLabel(runoffScenario)} runoff. Not a
+                  forecast.
+                </span>
+                <button
+                  onClick={() => onRunoffScenarioChange(null)}
+                  className="flex items-center gap-1 rounded-md bg-card px-2 py-1 font-medium text-navy shadow-sm"
+                >
+                  <RefreshCw className="size-3.5" />
+                  Reset to forecast
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {watershedError ? (
           <p className="mt-1 text-xs text-warn">{watershedError}</p>
         ) : watershedLoading ? (
@@ -343,6 +406,18 @@ export function StationDetail({
                     {watershed.stats.total_runoff_m3.toLocaleString("en-CA")} m³
                   </span>
                 </DetailRow>
+                {runoffScenario !== null && (
+                  <DetailRow label="Forecast total runoff">
+                    <span className="tabular-nums">
+                      {(
+                        (watershed.stats.total_runoff_m3 *
+                          BASELINE_RUNOFF_COEFFICIENT) /
+                        runoffScenario
+                      ).toLocaleString("en-CA")}{" "}
+                      m³
+                    </span>
+                  </DetailRow>
+                )}
                 <DetailRow label="Outlet runoff">
                   <span className="tabular-nums">
                     {watershed.stats.outlet_runoff_m3.toLocaleString("en-CA")}{" "}
