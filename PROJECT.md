@@ -102,11 +102,16 @@ lays out:
   vs. predicted series. It draws only API rows; with no data it shows an empty state.
 
 Stations and predictions are fetched in `dashboard.tsx` through `lib/api.ts`
-(`GET /api/v1/get-hydrometric-stations/` and
-`GET /api/v1/station/{station}/predict-hydrocarbon?limit={N}`, base URL from
-`NEXT_PUBLIC_API_BASE_URL`). Every value shown on the dashboard comes from those two
+(`GET /api/v1/get-hydrometric-stations/`,
+`GET /api/v1/station/{station}/predict-hydrocarbon?limit={N}`, and
+`GET /api/v1/get-hydrometric-stations/{station}/watershed`, base URL from
+`NEXT_PUBLIC_API_BASE_URL`). Every value shown on the dashboard comes from those
 calls — there is no placeholder/hardcoded data. `lib/dashboard-data.ts` keeps the shared
 types plus the status/guideline rules used to classify stations.
+
+The watershed endpoint is called whenever the user selects a station. Its boundary and
+impact raster are drawn on the station map (`forecast-map.tsx`) as a GeoJSON fill/line
+layer plus an image raster layer; the summary stats appear in `station-detail.tsx`.
 
 ---
 

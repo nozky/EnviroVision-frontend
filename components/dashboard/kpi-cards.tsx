@@ -60,27 +60,29 @@ export function KpiCards({
   ]
 
   return (
-    <section className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+    <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       {cards.map((card) => (
         <div
           key={card.label}
           className="flex items-center gap-3 rounded-lg border border-card-edge bg-card px-3 py-1.5 shadow-sm"
         >
           <span
-            className={`flex size-7 shrink-0 items-center justify-center rounded-full ${card.iconClass}`}
+            className={`flex size-6 shrink-0 items-center justify-center rounded-full ${card.iconClass}`}
           >
-            <card.icon className="size-4" />
+            <card.icon className="size-3.5" />
           </span>
           <div className="min-w-0">
-            <div className="flex items-baseline gap-1.5">
-              <p className={`text-lg font-bold leading-none ${card.valueClass}`}>
+            <div className="flex flex-col leading-tight sm:flex-row sm:items-baseline sm:gap-1.5">
+              <p
+                className={`text-base leading-none font-bold ${card.valueClass}`}
+              >
                 {card.value}
               </p>
-              <p className="truncate text-xs font-medium text-slate">
+              <p className="truncate text-[11px] font-medium text-slate">
                 {card.label}
               </p>
             </div>
-            <p className="truncate text-[11px] tabular-nums text-slate/80">
+            <p className="truncate text-[10px] text-slate/80 tabular-nums">
               {card.detail}
               <span className="ml-0.5">µg/L</span>
             </p>

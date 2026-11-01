@@ -1,4 +1,8 @@
-import type { ApiStation, HydrocarbonPrediction } from "@/lib/dashboard-data"
+import type {
+  ApiStation,
+  HydrocarbonPrediction,
+  WatershedResponse,
+} from "@/lib/dashboard-data"
 
 // Base URL for backend requests. Only variables prefixed with NEXT_PUBLIC_ are
 // available in client components, which is where this call is made.
@@ -47,5 +51,38 @@ export async function fetchHydrocarbonPrediction(
     payload
   )
 
+  return payload
+}
+
+// Fetch the upstream watershed and runoff impact data for a station.
+export async function fetchWatershed(
+  stationNumber: string,
+  options: {
+    runoffCoefficient?: number
+    hour?: string
+    signal?: AbortSignal
+  } = {}
+): Promise<WatershedResponse> {
+  const path = `/api/v1/get-hydrometric-stations/${encodeURIComponent(stationNumber)}/watershed`
+  const params = new URLSearchParams()
+  if (options.runoffCoefficient != null) {
+    params.set("runoff_coefficient", String(options.runoffCoefficient))
+  }
+  if (options.hour != null) {
+    params.set("hour", options.hour)
+  }
+
+  const query = params.toString()
+  const response = await fetch(
+    `${API_BASE_URL}${path}${query ? `?${query}` : ""}`,
+    { signal: options.signal }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`)
+  }
+
+  const payload: WatershedResponse = await response.json()
+  console.log(`[watershed] station=${stationNumber}`, payload)
   return payload
 }

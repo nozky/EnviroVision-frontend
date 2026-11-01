@@ -53,6 +53,72 @@ export type HydrocarbonPrediction = {
   data: PredictionPoint[]
 }
 
+// Subset of a station record returned by the watershed endpoint.
+export type WatershedStation = {
+  station_number: string
+  station_name: string
+  watercourse: string
+  latitude: number
+  longitude: number
+}
+
+// One hourly rain summary from the watershed forecast series.
+export type WatershedHourly = {
+  time: string
+  mean_rain_mm: number
+}
+
+// Impact class breakdown inside the watershed.
+export type WatershedClass = {
+  value: number
+  label: string
+  pixels: number
+  percent: number
+}
+
+// Runoff stats for the selected forecast hour.
+export type WatershedStats = {
+  total_runoff_m3: number
+  outlet_runoff_m3: number
+  outlet_runoff_depth_mm: number
+  max_rain_mm: number
+  thresholds_m3: { p50: number; p75: number; p90: number }
+  classes: WatershedClass[]
+}
+
+// Base-64 PNG impact map with its geographic anchor.
+export type WatershedImage = {
+  data_uri: string
+  // TL, TR, BR, BL in WGS84.
+  coordinates: [
+    [number, number],
+    [number, number],
+    [number, number],
+    [number, number],
+  ]
+  bounds: [[number, number], [number, number]]
+}
+
+export type WatershedBoundary = {
+  type: "Polygon" | "MultiPolygon"
+  coordinates: number[][][][] | number[][][]
+}
+
+// Full reply from GET /api/v1/get-hydrometric-stations/{station_number}/watershed.
+export type WatershedResponse = {
+  station: WatershedStation
+  outlet: { longitude: number; latitude: number }
+  area_km2: number
+  elevation_m: { min: number; max: number; mean: number }
+  target_time: string
+  hourly: WatershedHourly[]
+  sample_points: number
+  no_rain: boolean
+  boundary: WatershedBoundary
+  image: WatershedImage | null
+  stats: WatershedStats | null
+}
+
 // How a station looks at a glance, based on the Canadian long-term aquatic-life
 // guideline for PAH (0.015 µg/L).
 export type StationStatus = "normal" | "medium" | "high"

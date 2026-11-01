@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Leaf } from "lucide-react"
+import { ChevronDown, ChevronUp, Leaf, PanelRight } from "lucide-react"
 
 import {
   ChartViewToggle,
@@ -12,7 +12,11 @@ import { KpiCards } from "@/components/dashboard/kpi-cards"
 import { PahChart } from "@/components/dashboard/pah-chart"
 import { PahForecastChart } from "@/components/dashboard/pah-forecast-chart"
 import { StationDetail } from "@/components/dashboard/station-detail"
-import { fetchHydrocarbonPrediction, fetchHydrometricStations } from "@/lib/api"
+import {
+  fetchHydrocarbonPrediction,
+  fetchHydrometricStations,
+  fetchWatershed,
+} from "@/lib/api"
 import {
   defaultPredictionLimit,
   defaultStationNumber,
@@ -21,6 +25,7 @@ import {
   type HydrocarbonPrediction,
   type Station,
   type StationStatus,
+  type WatershedResponse,
 } from "@/lib/dashboard-data"
 
 // How many records we ask the backend for per station. The input edits a
@@ -52,6 +57,11 @@ export function Dashboard() {
   useEffect(() => {
     predictionsRef.current = predictions
   }, [predictions])
+
+  // Watershed data for the currently selected station.
+  const [watershed, setWatershed] = useState<WatershedResponse | null>(null)
+  const [watershedLoading, setWatershedLoading] = useState(false)
+  const [watershedError, setWatershedError] = useState<string | null>(null)
 
   // Try a single station again after a failed load.
   const retryStation = useCallback(
@@ -141,20 +151,34 @@ export function Dashboard() {
     return () => controller.abort()
   }, [stations, predictionLimit])
 
-  // Pick a station to show first, once the list is in.
+  // Load the selected station's watershed whenever the selection changes.
   useEffect(() => {
-    if (!stations) return
-    setSelectedStation((current) => {
-      if (current) return current
-      return (
-        stations.find(
-          (station) => station.station_number === defaultStationNumber
-        ) ??
-        stations[0] ??
-        current
-      )
-    })
-  }, [stations])
+    if (!selectedStation) return
+
+    const controller = new AbortController()
+
+    const load = async () => {
+      setWatershedLoading(true)
+      setWatershedError(null)
+      setWatershed(null)
+
+      try {
+        const data = await fetchWatershed(selectedStation.station_number, {
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        setWatershed(data)
+      } catch (cause: unknown) {
+        if (cause instanceof DOMException && cause.name === "AbortError") return
+        setWatershedError("Could not load watershed data.")
+      } finally {
+        if (!controller.signal.aborted) setWatershedLoading(false)
+      }
+    }
+
+    void load()
+    return () => controller.abort()
+  }, [selectedStation])
 
   // The status of every station, read against the fixed guideline bands.
   const statuses = useMemo(() => {
@@ -209,57 +233,49 @@ export function Dashboard() {
     <ChartViewToggle view={chartView} onViewChange={setChartView} />
   )
 
+  const [detailOpen, setDetailOpen] = useState(true)
+  const [chartOpen, setChartOpen] = useState(true)
+
+  // Trigger a map resize after floating panels animate open/closed.
+  useEffect(() => {
+    const handle = requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"))
+    })
+    return () => cancelAnimationFrame(handle)
+  }, [detailOpen, chartOpen])
+
   return (
-    <main className="min-h-screen bg-page p-3 text-navy lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden lg:p-4">
-      <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-full bg-good-soft">
-            <Leaf className="size-5 text-good" />
-          </span>
-          <div>
-            <h1 className="text-xl leading-tight font-bold text-navy">
-              EnviroVision
-            </h1>
-            <p className="text-xs text-slate">
-              Environmental Monitoring &amp; Forecasting
-            </p>
-          </div>
-        </div>
-
-        <label className="flex flex-col gap-0.5 text-xs font-medium text-slate">
-          Records to show
-          <input
-            type="number"
-            min={MIN_PREDICTION_LIMIT}
-            max={MAX_PREDICTION_LIMIT}
-            value={limitDraft}
-            onChange={(event) => setLimitDraft(event.target.value)}
-            onBlur={commitLimit}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur()
-              }
-            }}
-            className="rounded-lg border border-card-edge bg-card px-2.5 py-1.5 text-sm text-navy shadow-sm outline-none focus:border-brand-blue"
-          />
-        </label>
-      </header>
-
+    <main className="fixed inset-0 overflow-hidden bg-page text-navy">
       {error && (
-        <div className="shrink-0 rounded-xl border border-card-edge bg-card p-4 text-sm text-slate shadow-sm">
+        <div className="absolute top-16 right-4 left-4 z-50 rounded-xl border border-card-edge bg-card p-4 text-sm text-slate shadow-lg">
           {error}
         </div>
       )}
 
       {!error && !stations && (
-        <div className="shrink-0 rounded-xl border border-card-edge bg-card p-4 text-sm text-slate shadow-sm">
+        <div className="absolute top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-card-edge bg-card p-4 text-sm text-slate shadow-lg">
           Loading stations…
         </div>
       )}
 
       {stations && (
-        <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
-          <div className="shrink-0">
+        <>
+          {/* Top-left floating header + KPIs. */}
+          <header className="absolute top-4 left-4 z-20 flex max-w-[calc(100%-2rem)] flex-col gap-2 lg:max-w-2xl">
+            <div className="flex items-center gap-2.5 rounded-xl border border-card-edge bg-card/95 px-3 py-2 shadow-md backdrop-blur-sm">
+              <span className="flex size-8 items-center justify-center rounded-full bg-good-soft">
+                <Leaf className="size-4 text-good" />
+              </span>
+              <div>
+                <h1 className="text-base leading-tight font-bold text-navy">
+                  EnviroVision
+                </h1>
+                <p className="text-[10px] text-slate">
+                  Environmental Monitoring &amp; Forecasting
+                </p>
+              </div>
+            </div>
+
             <KpiCards
               stations={stations}
               highCount={highCount}
@@ -267,33 +283,58 @@ export function Dashboard() {
               normalCount={normalCount}
               thresholds={STATUS_THRESHOLDS}
             />
+          </header>
+
+          {/* Top-right floating record limit. */}
+          <label className="absolute top-4 right-4 z-20 flex flex-col gap-0.5 rounded-xl border border-card-edge bg-card/95 px-3 py-2 text-xs font-medium text-slate shadow-md backdrop-blur-sm">
+            Records to show
+            <input
+              type="number"
+              min={MIN_PREDICTION_LIMIT}
+              max={MAX_PREDICTION_LIMIT}
+              value={limitDraft}
+              onChange={(event) => setLimitDraft(event.target.value)}
+              onBlur={commitLimit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur()
+                }
+              }}
+              className="w-20 rounded-lg border border-card-edge bg-card px-2 py-1 text-sm text-navy shadow-sm outline-none focus:border-brand-blue"
+            />
+          </label>
+
+          {/* Full-screen map. */}
+          <div className="absolute inset-0">
+            <ForecastMap
+              stations={stations}
+              onSelectStation={selectStation}
+              selectedStation={selectedStation}
+              statuses={statuses}
+              selectedPrediction={selectedPrediction}
+              selectedLoading={selectedLoading}
+              selectedError={selectedError}
+              watershed={watershed}
+            />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
-            <section className="flex min-h-80 flex-col rounded-xl border border-card-edge bg-card shadow-sm lg:min-h-0">
-              <header className="shrink-0 px-3 pt-2.5 pb-1.5">
-                <h2 className="text-sm font-semibold text-navy">
-                  Predicted PAH Concentration (µg/L)
-                </h2>
-                <p className="text-xs text-slate">
-                  Last {predictionLimit} record
-                  {predictionLimit === 1 ? "" : "s"} per station
-                </p>
-              </header>
-              <div className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl">
-                <ForecastMap
-                  stations={stations}
-                  onSelectStation={selectStation}
-                  selectedStation={selectedStation}
-                  statuses={statuses}
-                  selectedPrediction={selectedPrediction}
-                  selectedLoading={selectedLoading}
-                  selectedError={selectedError}
-                />
-              </div>
-            </section>
-
-            <div className="lg:min-h-0 lg:overflow-y-auto">
+          {/* Right-side station detail panel. */}
+          <aside
+            className={`absolute top-[5.5rem] right-4 bottom-4 z-20 flex w-[min(360px,80vw)] flex-col rounded-xl border border-card-edge bg-card/95 shadow-lg backdrop-blur-sm transition-transform duration-200 ${
+              detailOpen ? "translate-x-0" : "translate-x-[calc(100%+1.5rem)]"
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-card-edge px-3 py-2">
+              <span className="text-xs font-semibold text-slate">Station</span>
+              <button
+                onClick={() => setDetailOpen(false)}
+                className="rounded-md p-1 text-slate hover:bg-table-head"
+                aria-label="Close station detail"
+              >
+                <PanelRight className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <StationDetail
                 station={selectedStation}
                 prediction={selectedPrediction}
@@ -308,33 +349,67 @@ export function Dashboard() {
                   if (selectedStation)
                     void retryStation(selectedStation.station_number)
                 }}
+                watershed={watershed}
+                watershedLoading={watershedLoading}
+                watershedError={watershedError}
               />
             </div>
-          </div>
+          </aside>
 
-          {/* One card for both charts; the header toggle picks which one is
-              shown, with the forecast as the default. */}
-          <div className="relative h-[220px] shrink-0">
-            {chartView === "forecast" ? (
-              <PahForecastChart
-                prediction={selectedPrediction ?? null}
-                loading={selectedLoading}
-                error={selectedError}
-                stationNumber={selectedStation?.station_number ?? null}
-                viewToggle={chartToggle}
-              />
-            ) : (
-              <PahChart
-                prediction={selectedPrediction ?? null}
-                loading={selectedLoading}
-                error={selectedError}
-                stationNumber={selectedStation?.station_number ?? null}
-                limit={predictionLimit}
-                viewToggle={chartToggle}
-              />
-            )}
+          {/* Tab to reopen the detail panel. */}
+          {!detailOpen && (
+            <button
+              onClick={() => setDetailOpen(true)}
+              className="absolute top-[5.5rem] right-4 z-20 flex items-center gap-1.5 rounded-l-xl border border-r-0 border-card-edge bg-card/95 px-3 py-2 text-xs font-semibold text-navy shadow-md backdrop-blur-sm"
+              aria-label="Open station detail"
+            >
+              <PanelRight className="size-4" />
+              Station
+            </button>
+          )}
+
+          {/* Bottom chart drawer. */}
+          <div
+            className={`absolute right-4 left-4 z-20 flex flex-col rounded-t-xl border border-b-0 border-card-edge bg-card/95 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] backdrop-blur-sm transition-transform duration-200 lg:left-auto lg:w-[min(720px,calc(100%-2rem))] ${
+              chartOpen
+                ? "bottom-0 translate-y-0"
+                : "bottom-0 translate-y-[calc(100%-2.25rem)]"
+            } ${detailOpen ? "lg:right-[calc(min(360px,80vw)_+_2rem)]" : "lg:right-4"}`}
+          >
+            <button
+              onClick={() => setChartOpen((open) => !open)}
+              className="flex items-center justify-between rounded-t-xl px-3 py-2 text-xs font-semibold text-navy hover:bg-table-head"
+              aria-expanded={chartOpen}
+            >
+              <span>PAH Trend</span>
+              {chartOpen ? (
+                <ChevronDown className="size-4 text-slate" />
+              ) : (
+                <ChevronUp className="size-4 text-slate" />
+              )}
+            </button>
+            <div className="relative h-[220px] w-full px-3 pb-3">
+              {chartView === "forecast" ? (
+                <PahForecastChart
+                  prediction={selectedPrediction ?? null}
+                  loading={selectedLoading}
+                  error={selectedError}
+                  stationNumber={selectedStation?.station_number ?? null}
+                  viewToggle={chartToggle}
+                />
+              ) : (
+                <PahChart
+                  prediction={selectedPrediction ?? null}
+                  loading={selectedLoading}
+                  error={selectedError}
+                  stationNumber={selectedStation?.station_number ?? null}
+                  limit={predictionLimit}
+                  viewToggle={chartToggle}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </main>
   )

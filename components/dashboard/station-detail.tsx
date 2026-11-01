@@ -8,6 +8,7 @@ import {
   type HydrocarbonPrediction,
   type Station,
   type StationStatus,
+  type WatershedResponse,
 } from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
 
@@ -56,6 +57,10 @@ type StationDetailProps = {
   loading: boolean
   error: string | null
   onRetry: () => void
+  // Upstream watershed + impact data for the selected station.
+  watershed: WatershedResponse | null | undefined
+  watershedLoading: boolean
+  watershedError: string | null
 }
 
 export function StationDetail({
@@ -65,6 +70,9 @@ export function StationDetail({
   loading,
   error,
   onRetry,
+  watershed,
+  watershedLoading,
+  watershedError,
 }: StationDetailProps) {
   // Nothing chosen yet.
   if (!station) {
@@ -130,7 +138,9 @@ export function StationDetail({
         ) : (
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-table-head px-2.5 py-2">
-              <p className="text-[11px] font-medium text-slate">Latest sample</p>
+              <p className="text-[11px] font-medium text-slate">
+                Latest sample
+              </p>
               <p className="text-xs font-semibold text-navy">
                 {latest ? formatDate(latest.sample_datetime) : "—"}
               </p>
@@ -139,7 +149,7 @@ export function StationDetail({
               <p className="text-[11px] font-medium text-slate">
                 Records shown
               </p>
-              <p className="text-xs font-semibold tabular-nums text-navy">
+              <p className="text-xs font-semibold text-navy tabular-nums">
                 {prediction ? prediction.data.length : "—"}
               </p>
             </div>
@@ -147,7 +157,7 @@ export function StationDetail({
               <p className="text-[11px] font-medium text-slate">
                 Measured (µg/L)
               </p>
-              <p className="text-xs font-semibold tabular-nums text-navy">
+              <p className="text-xs font-semibold text-navy tabular-nums">
                 {formatValue(latest?.actual)}
               </p>
             </div>
@@ -155,7 +165,7 @@ export function StationDetail({
               <p className="text-[11px] font-medium text-slate">
                 Predicted (µg/L)
               </p>
-              <p className="text-xs font-semibold tabular-nums text-navy">
+              <p className="text-xs font-semibold text-navy tabular-nums">
                 {formatValue(latest?.predicted)}
               </p>
             </div>
@@ -216,6 +226,57 @@ export function StationDetail({
             </DetailRow>
           )}
         </dl>
+
+        {/* Watershed summary for the selected station. */}
+        <h3 className="mt-3 text-[11px] font-semibold tracking-wide text-slate uppercase">
+          Watershed
+        </h3>
+        {watershedError ? (
+          <p className="mt-1 text-xs text-warn">{watershedError}</p>
+        ) : watershedLoading ? (
+          <p className="mt-1 flex items-center gap-2 text-xs text-slate">
+            <Loader2 className="size-3.5 animate-spin text-brand-blue" />
+            Loading watershed…
+          </p>
+        ) : !watershed ? (
+          <p className="mt-1 text-xs text-slate">
+            No watershed data available.
+          </p>
+        ) : watershed.no_rain ? (
+          <p className="mt-1 text-xs text-slate">
+            No significant rainfall forecast for the watershed.
+          </p>
+        ) : (
+          <dl className="mt-0.5 divide-y divide-card-edge">
+            <DetailRow label="Area">{formatArea(watershed.area_km2)}</DetailRow>
+            <DetailRow label="Elevation">
+              <span className="tabular-nums">
+                {watershed.elevation_m.min.toFixed(0)}–
+                {watershed.elevation_m.max.toFixed(0)} m
+              </span>
+            </DetailRow>
+            {watershed.stats && (
+              <>
+                <DetailRow label="Total runoff">
+                  <span className="tabular-nums">
+                    {watershed.stats.total_runoff_m3.toLocaleString("en-CA")} m³
+                  </span>
+                </DetailRow>
+                <DetailRow label="Outlet runoff">
+                  <span className="tabular-nums">
+                    {watershed.stats.outlet_runoff_m3.toLocaleString("en-CA")}{" "}
+                    m³
+                  </span>
+                </DetailRow>
+                <DetailRow label="Max rain">
+                  <span className="tabular-nums">
+                    {watershed.stats.max_rain_mm.toFixed(2)} mm
+                  </span>
+                </DetailRow>
+              </>
+            )}
+          </dl>
+        )}
       </div>
     </section>
   )

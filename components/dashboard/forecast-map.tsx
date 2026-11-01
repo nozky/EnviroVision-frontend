@@ -11,6 +11,7 @@ import {
   type HydrocarbonPrediction,
   type Station,
   type StationStatus,
+  type WatershedResponse,
 } from "@/lib/dashboard-data"
 import { cn } from "@/lib/utils"
 
@@ -83,6 +84,8 @@ type ForecastMapProps = {
   selectedPrediction: HydrocarbonPrediction | null | undefined
   selectedLoading: boolean
   selectedError: string | null
+  // Optional upstream watershed + impact raster to draw over the basemap.
+  watershed: WatershedResponse | null | undefined
 }
 
 export function ForecastMap({
@@ -93,6 +96,7 @@ export function ForecastMap({
   selectedPrediction,
   selectedLoading,
   selectedError,
+  watershed,
 }: ForecastMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -107,6 +111,8 @@ export function ForecastMap({
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null)
   // Same station as `selected`, readable from inside the map's move handler.
   const selectedRef = useRef<Station | null>(null)
+  // We cannot add layers until the initial style has loaded.
+  const [mapLoaded, setMapLoaded] = useState(false)
 
   // Keep the refs in step with the props outside of render.
   useEffect(() => {
@@ -145,6 +151,10 @@ export function ForecastMap({
     })
     mapRef.current = map
 
+    // Resize the map when the container changes size (e.g. panels opening).
+    const resize = () => map.resize()
+    window.addEventListener("resize", resize)
+
     // Zoom in/out buttons plus a compass, matching the screenshot.
     map.addControl(new maplibregl.NavigationControl(), "top-right")
     // Distance scale in the bottom-right.
@@ -160,6 +170,7 @@ export function ForecastMap({
     map.on("move", repositionCard)
 
     map.on("load", () => {
+      setMapLoaded(true)
       const current = stationsRef.current
 
       map.addSource("stations", {
@@ -274,6 +285,7 @@ export function ForecastMap({
     })
 
     return () => {
+      window.removeEventListener("resize", resize)
       map.remove()
       mapRef.current = null
     }
@@ -283,7 +295,8 @@ export function ForecastMap({
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const source = map.getSource("stations") as maplibregl.GeoJSONSource | undefined
+    const source = map.getSource("stations") as
+      maplibregl.GeoJSONSource | undefined
     if (!source) return
     source.setData(
       buildCollection(
@@ -293,6 +306,84 @@ export function ForecastMap({
       )
     )
   }, [stations, statuses, selectedStation])
+
+  // Draw the watershed boundary and impact raster over the basemap whenever the
+  // selected station's watershed data changes.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+
+    const removeWatershedLayers = () => {
+      for (const id of [
+        "watershed-fill",
+        "watershed-line",
+        "watershed-image",
+      ]) {
+        if (map.getLayer(id)) map.removeLayer(id)
+      }
+      for (const id of ["watershed-boundary", "watershed-image"]) {
+        if (map.getSource(id)) map.removeSource(id)
+      }
+    }
+
+    removeWatershedLayers()
+
+    if (!watershed) return
+
+    // Boundary outline + subtle fill.
+    map.addSource("watershed-boundary", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        geometry: watershed.boundary,
+        properties: {},
+      },
+    })
+
+    map.addLayer({
+      id: "watershed-fill",
+      type: "fill",
+      source: "watershed-boundary",
+      paint: {
+        "fill-color": "#0287f4",
+        "fill-opacity": 0.3,
+      },
+    })
+
+    map.addLayer({
+      id: "watershed-line",
+      type: "line",
+      source: "watershed-boundary",
+      paint: {
+        "line-color": "#0287f4",
+        "line-width": 2.5,
+        "line-opacity": 1,
+      },
+    })
+
+    // Impact raster, if the backend produced one for this hour.
+    if (watershed.image) {
+      map.addSource("watershed-image", {
+        type: "image",
+        url: watershed.image.data_uri,
+        coordinates: watershed.image.coordinates,
+      })
+
+      map.addLayer({
+        id: "watershed-image",
+        type: "raster",
+        source: "watershed-image",
+        paint: {
+          "raster-opacity": 0.65,
+          "raster-fade-duration": 0,
+        },
+      })
+    }
+
+    return () => {
+      removeWatershedLayers()
+    }
+  }, [watershed, mapLoaded])
 
   // Drop the card below the marker when it would otherwise run off the top.
   const flipped = anchor ? anchor.y < FLIP_THRESHOLD : false
