@@ -292,8 +292,8 @@ export function PahForecastChart({
   ) : null
 
   return (
-    <section className="absolute inset-0 w-full rounded-xl border border-card-edge bg-card p-2.5 shadow-sm">
-      <header className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+    <section className="absolute inset-0 flex w-full flex-col rounded-xl border border-card-edge bg-card p-2.5 shadow-sm">
+      <header className="mb-1 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div>
           <h2 className="text-sm font-semibold text-navy">
             PAH Concentration Forecast
@@ -310,8 +310,9 @@ export function PahForecastChart({
         </div>
       </header>
 
-      {/* Kept short so the map and station panel above keep the screen. */}
-      <div className="relative h-44 w-full lg:h-48">
+      {/* Takes whatever height the header and footer leave, so the date axis and
+          footer stay inside the drawer at any width. */}
+      <div className="relative min-h-24 w-full flex-1">
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows} margin={{ top: 6, right: 20, bottom: 4 }}>
@@ -427,13 +428,12 @@ export function PahForecastChart({
 
       {/* One compact line for the read-out and the data note, so the card
           stays short and the map above keeps the screen. */}
-      <footer className="mt-1.5 text-[11px] leading-snug text-slate">
+      <footer className="mt-0.5 shrink-0 text-[11px] leading-snug text-slate">
         {readout}
         {readout && " · "}
         {/* These readings come from the seeded simulation table, so say so. */}
         <span className="text-slate/80">
-          Synthetic demonstration data (<code>hydrocarbon_measurements</code>),
-          not observed samples.
+          Synthetic demonstration data, not observed samples.
         </span>
       </footer>
     </section>
