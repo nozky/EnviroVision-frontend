@@ -329,7 +329,7 @@ export function Dashboard() {
 
           {/* Right-side station detail panel. */}
           <aside
-            className={`absolute top-[5.5rem] right-4 bottom-4 z-20 flex w-[min(360px,80vw)] flex-col rounded-xl border border-card-edge bg-card/95 shadow-lg backdrop-blur-sm transition-transform duration-200 ${
+            className={`absolute top-22 right-4 bottom-4 z-20 flex w-[min(360px,80vw)] flex-col rounded-xl border border-card-edge bg-card/95 shadow-lg backdrop-blur-sm transition-transform duration-200 ${
               detailOpen ? "translate-x-0" : "translate-x-[calc(100%+1.5rem)]"
             }`}
           >
