@@ -38,6 +38,18 @@ function formatArea(value: number | null | undefined) {
   return value == null ? "—" : `${value.toLocaleString("en-CA")} km²`
 }
 
+// "2026-11-06T16:00:00+00:00" -> "Nov 6, 16:00 UTC". Forecast hours are UTC.
+function formatHour(time: string) {
+  return `${new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "UTC",
+  }).format(new Date(time))} UTC`
+}
+
 // One line in the "About this station" list.
 function DetailRow({
   label,
@@ -71,7 +83,7 @@ function WatershedLegend({ classes }: { classes: WatershedClass[] }) {
             />
             <span className="font-medium text-navy">{meta.label}</span>
             <span className="truncate text-slate">{meta.range}</span>
-            <span className="ml-auto shrink-0 tabular-nums text-navy">
+            <span className="ml-auto shrink-0 text-navy tabular-nums">
               {percents[band].toFixed(1)}%
             </span>
           </li>
@@ -94,6 +106,9 @@ type StationDetailProps = {
   watershed: WatershedResponse | null | undefined
   watershedLoading: boolean
   watershedError: string | null
+  // The forecast hour chosen for the watershed, or null for the wettest hour.
+  watershedHour: string | null
+  onWatershedHourChange: (hour: string | null) => void
 }
 
 export function StationDetail({
@@ -106,6 +121,8 @@ export function StationDetail({
   watershed,
   watershedLoading,
   watershedError,
+  watershedHour,
+  onWatershedHourChange,
 }: StationDetailProps) {
   // Nothing chosen yet.
   if (!station) {
@@ -264,6 +281,30 @@ export function StationDetail({
         <h3 className="mt-3 text-[11px] font-semibold tracking-wide text-slate uppercase">
           Watershed
         </h3>
+        {watershed && !watershedError && watershed.hourly.length > 0 && (
+          <label className="mt-1 flex flex-col gap-0.5 text-xs font-medium text-slate">
+            Forecast hour for runoff
+            <select
+              value={watershedHour ?? ""}
+              onChange={(event) =>
+                onWatershedHourChange(event.target.value || null)
+              }
+              className="w-full rounded-lg border border-card-edge bg-card px-2 py-1.5 text-sm text-navy shadow-sm outline-none focus:border-brand-blue"
+            >
+              <option value="">Wettest hour (default)</option>
+              {watershed.hourly.map((hour) => (
+                <option key={hour.time} value={hour.time}>
+                  {formatHour(hour.time)} · {hour.mean_rain_mm.toFixed(2)} mm
+                  rain
+                </option>
+              ))}
+            </select>
+            <span className="font-normal text-slate">
+              Changes the watershed map and runoff figures below. The PAH chart
+              is not affected.
+            </span>
+          </label>
+        )}
         {watershedError ? (
           <p className="mt-1 text-xs text-warn">{watershedError}</p>
         ) : watershedLoading ? (
@@ -277,10 +318,14 @@ export function StationDetail({
           </p>
         ) : watershed.no_rain ? (
           <p className="mt-1 text-xs text-slate">
-            No significant rainfall forecast for the watershed.
+            No significant rainfall forecast for the watershed at{" "}
+            {formatHour(watershed.target_time)}. Pick another hour above.
           </p>
         ) : (
           <dl className="mt-0.5 divide-y divide-card-edge">
+            <DetailRow label="Forecast hour">
+              {formatHour(watershed.target_time)}
+            </DetailRow>
             <DetailRow label="Area">{formatArea(watershed.area_km2)}</DetailRow>
             <DetailRow label="Elevation">
               <span className="tabular-nums">

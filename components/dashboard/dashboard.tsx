@@ -62,6 +62,9 @@ export function Dashboard() {
   const [watershed, setWatershed] = useState<WatershedResponse | null>(null)
   const [watershedLoading, setWatershedLoading] = useState(false)
   const [watershedError, setWatershedError] = useState<string | null>(null)
+  // The forecast hour the user picked for the watershed. Null means the
+  // backend's default (the wettest hour). Only the watershed uses this.
+  const [watershedHour, setWatershedHour] = useState<string | null>(null)
 
   // Try a single station again after a failed load.
   const retryStation = useCallback(
@@ -90,6 +93,8 @@ export function Dashboard() {
   const selectStation = useCallback(
     (station: Station) => {
       setSelectedStation(station)
+      // Each station has its own forecast hours, so start again at the default.
+      setWatershedHour(null)
       // If this station failed earlier, have another go at loading it.
       if (predictionsRef.current[station.station_number] === null) {
         void retryStation(station.station_number)
@@ -151,7 +156,8 @@ export function Dashboard() {
     return () => controller.abort()
   }, [stations, predictionLimit])
 
-  // Load the selected station's watershed whenever the selection changes.
+  // Load the selected station's watershed whenever the station or the chosen
+  // forecast hour changes.
   useEffect(() => {
     if (!selectedStation) return
 
@@ -160,10 +166,17 @@ export function Dashboard() {
     const load = async () => {
       setWatershedLoading(true)
       setWatershedError(null)
-      setWatershed(null)
+      // Keep the current map and figures on screen while a new hour loads;
+      // only clear them when the station itself changes.
+      setWatershed((previous) =>
+        previous?.station.station_number === selectedStation.station_number
+          ? previous
+          : null
+      )
 
       try {
         const data = await fetchWatershed(selectedStation.station_number, {
+          hour: watershedHour ?? undefined,
           signal: controller.signal,
         })
         if (controller.signal.aborted) return
@@ -178,7 +191,7 @@ export function Dashboard() {
 
     void load()
     return () => controller.abort()
-  }, [selectedStation])
+  }, [selectedStation, watershedHour])
 
   // The status of every station, read against the fixed guideline bands.
   const statuses = useMemo(() => {
@@ -390,6 +403,8 @@ export function Dashboard() {
                 watershed={watershed}
                 watershedLoading={watershedLoading}
                 watershedError={watershedError}
+                watershedHour={watershedHour}
+                onWatershedHourChange={setWatershedHour}
               />
             </div>
           </aside>
